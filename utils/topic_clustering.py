@@ -1,0 +1,6 @@
+from sklearn.cluster import KMeans
+
+def cluster_chunks(embeddings, n_clusters=4):
+    kmeans=KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels=kmeans.fit_predict(embeddings)
+    return labels.tolist(), kmeans

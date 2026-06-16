@@ -1,0 +1,10 @@
+streamlit
+sentence-transformers
+chromadb
+langchain-text-splitters
+pypdf
+scikit-learn
+matplotlib
+openai
+deepeval
+python-dotenv
