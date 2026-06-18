@@ -10,9 +10,46 @@ st.markdown("""
 <style>
 #MainMenu, footer, header {visibility: hidden;}
 .block-container {padding: 0 !important; max-width: 100% !important;}
-section[data-testid="stSidebar"] {display: none;}
 
 body, .stApp { background: #0e0e11 !important; color: #ccc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* ── Sidebar shell ── */
+section[data-testid="stSidebar"] {
+    background: #13131a !important;
+    border-right: 0.5px solid #232330 !important;
+}
+section[data-testid="stSidebar"] > div { padding-top: 18px; }
+.cb-sidebar-logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 4px 18px; margin-bottom: 6px;
+    border-bottom: 0.5px solid #232330;
+}
+.cb-sidebar-section-label {
+    font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 0.8px;
+    font-weight: 600; margin: 16px 4px 8px;
+}
+.cb-sidebar-footer {
+    margin-top: 18px; padding-top: 14px; border-top: 0.5px solid #232330;
+}
+.cb-sidebar-footer-row {
+    display: flex; justify-content: space-between; font-size: 11px; color: #555;
+    padding: 5px 4px;
+}
+
+/* ── Sidebar nav buttons ── */
+section[data-testid="stSidebar"] div[data-testid="stButton"] button {
+    background: transparent !important; border: 0.5px solid transparent !important;
+    color: #888 !important; font-size: 13px !important; font-weight: 500 !important;
+    justify-content: flex-start !important; padding: 9px 14px !important;
+    border-radius: 8px !important; box-shadow: none !important; transition: all .15s !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button:hover {
+    background: #1a1a24 !important; color: #ccc !important; border-color: #2e2e42 !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button[kind="primary"] {
+    background: linear-gradient(135deg,#6B5CE7,#8b5cf6) !important; color: #fff !important;
+    box-shadow: 0 2px 12px #6B5CE744 !important; border-color: transparent !important;
+}
 
 /* ── Top nav bar ── */
 .cb-topbar {
@@ -253,6 +290,49 @@ div[data-testid="stFileUploadDropzone"] { background: #16161f !important; border
 .cb-pipeline-label { font-size: 12px; font-weight: 600; color: #ccc; margin-bottom: 3px; }
 .cb-pipeline-sub { font-size: 10px; color: #555; }
 .cb-pipeline-arrow { color: #333; font-size: 20px; flex-shrink: 0; }
+
+/* ── Suggestion chips ── */
+.cb-welcome {
+    text-align: center; padding: 28px 0 20px;
+}
+.cb-welcome-icon {
+    width: 60px; height: 60px;
+    background: linear-gradient(135deg,#6B5CE7,#a78bfa);
+    border-radius: 18px; display: inline-flex; align-items: center;
+    justify-content: center; font-size: 28px; margin-bottom: 16px;
+    box-shadow: 0 0 32px #6B5CE733;
+}
+.cb-welcome h2 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.5px; margin: 0 0 8px; }
+.cb-welcome p  { font-size: 13px; color: #555; margin: 0; }
+.cb-sugg-label {
+    font-size: 10px; color: #444; text-transform: uppercase;
+    letter-spacing: 0.8px; font-weight: 600; margin: 24px 0 12px;
+}
+/* Override Streamlit button style for chips only */
+div[data-testid="stButton"].chip-btn > button {
+    background: #13131a !important;
+    border: 0.5px solid #2a2a3a !important;
+    border-radius: 12px !important;
+    color: #999 !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 13px 16px !important;
+    line-height: 1.55 !important;
+    white-space: normal !important;
+    height: auto !important;
+    min-height: 52px !important;
+    box-shadow: none !important;
+    transition: all .15s !important;
+}
+div[data-testid="stButton"].chip-btn > button:hover {
+    background: #1a1a28 !important;
+    border-color: #6B5CE7 !important;
+    color: #ddd !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 18px #6B5CE722 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -261,54 +341,51 @@ for k, v in {
     "messages": [], "processed_files": set(), "document_names": set(),
     "cluster_labels": None, "topic_names": {}, "chunk_cluster_map": {},
     "kmeans": None, "page": "dashboard",
-    "query_history": [],       # list of {q, score, topic, ts}
-    "knowledge_gaps": [],      # questions that got low-confidence answers
+    "query_history": [],
+    "knowledge_gaps": [],
     "total_chunks_stored": 0,
+    "pdf_suggestions": [],
+    "doc_embeddings": {},
+    "doc_chunk_counts": {},
+    "doc_topic_maps": {},
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── Top nav bar ───────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="cb-topbar">
-  <div class="cb-logo">
-    <div class="cb-logo-icon">🧠</div>
-    <div>
-      <div class="cb-logo-text">Company Brain</div>
-      <div class="cb-logo-sub">Knowledge Intelligence</div>
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("""
+    <div class="cb-sidebar-logo">
+      <div class="cb-logo-icon">🧠</div>
+      <div>
+        <div class="cb-logo-text">Company Brain</div>
+        <div class="cb-logo-sub">Knowledge Intelligence</div>
+      </div>
     </div>
-  </div>
-  <div class="cb-search">
-    <span class="cb-search-icon">🔍</span>
-    <input type="text" placeholder="Search documents, topics, queries..." />
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# ── Page tabs ─────────────────────────────────────────────────────────────────
-col1, col2, col3, col4, col5, col_gap = st.columns([1.2, 1, 1.2, 1.2, 1.2, 4])
-with col1:
-    if st.button("📊 Dashboard", use_container_width=True,
-                 type="primary" if st.session_state.page == "dashboard" else "secondary"):
-        st.session_state.page = "dashboard"; st.rerun()
-with col2:
-    if st.button("✨ Ask AI", use_container_width=True,
-                 type="primary" if st.session_state.page == "chat" else "secondary"):
-        st.session_state.page = "chat"; st.rerun()
-with col3:
-    if st.button("📤 Upload", use_container_width=True,
-                 type="primary" if st.session_state.page == "upload" else "secondary"):
-        st.session_state.page = "upload"; st.rerun()
-with col4:
-    if st.button("🔍 Knowledge Gaps", use_container_width=True,
-                 type="primary" if st.session_state.page == "gaps" else "secondary"):
-        st.session_state.page = "gaps"; st.rerun()
-with col5:
-    if st.button("⚡ Features", use_container_width=True,
-                 type="primary" if st.session_state.page == "features" else "secondary"):
-        st.session_state.page = "features"; st.rerun()
+    st.markdown('<div class="cb-sidebar-section-label">Navigate</div>', unsafe_allow_html=True)
 
-st.markdown("<hr style='border:none;border-top:0.5px solid #1e1e2a;margin:0'>", unsafe_allow_html=True)
+    nav_items = [
+        ("dashboard", "📊  Dashboard"),
+        ("chat",      "✨  Ask AI"),
+        ("upload",    "📤  Upload"),
+        ("gaps",      "🔍  Knowledge Gaps"),
+        ("features",  "⚡  Features"),
+    ]
+    for key, label in nav_items:
+        if st.button(label, use_container_width=True,
+                     type="primary" if st.session_state.page == key else "secondary",
+                     key=f"nav_{key}"):
+            st.session_state.page = key
+            st.rerun()
+
+    st.markdown(f"""
+    <div class="cb-sidebar-footer">
+      <div class="cb-sidebar-footer-row"><span>📄 Documents</span><span>{len(st.session_state.document_names)}</span></div>
+      <div class="cb-sidebar-footer-row"><span>🏷️ Topics</span><span>{len(st.session_state.topic_names)}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -317,14 +394,13 @@ st.markdown("<hr style='border:none;border-top:0.5px solid #1e1e2a;margin:0'>", 
 if st.session_state.page == "dashboard":
     st.markdown('<div class="cb-content">', unsafe_allow_html=True)
 
-    # Hero
     doc_count = len(st.session_state.document_names)
     if doc_count == 0:
         st.markdown("""
         <div class="cb-hero">
           <div class="cb-hero-badge"><span class="cb-hero-badge-dot"></span>RAG-powered · Semantic Search · Topic Clustering</div>
           <h1>Your documents.<br><span>Intelligent answers.</span></h1>
-          <p>Company Brain turns your PDFs into a searchable knowledge base — powered by vector embeddings, topic clustering, and OpenRouter AI. Upload once, ask anything.</p>
+          <p>Company Brain turns your PDFs into a searchable knowledge base — powered by vector embeddings, topic clustering, and Groq AI. Upload once, ask anything.</p>
         </div>
         """, unsafe_allow_html=True)
         col_a, col_b = st.columns([1, 4])
@@ -344,7 +420,6 @@ if st.session_state.page == "dashboard":
             if st.button("✨ Ask a question →", type="primary", use_container_width=True):
                 st.session_state.page = "chat"; st.rerun()
 
-    # Stats
     msg_count = len([m for m in st.session_state.messages if m["role"] == "user"])
     avg_score = 0
     if st.session_state.query_history:
@@ -375,11 +450,9 @@ if st.session_state.page == "dashboard":
     </div>
     """, unsafe_allow_html=True)
 
-    # Two-column layout: left = charts / topics, right = query history
     left, right = st.columns([3, 2], gap="medium")
 
     with left:
-        # Topic cluster chart
         if st.session_state.cluster_labels is not None:
             st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">🏷️ Topic clusters</span><span class="cb-sec-sub">Auto-discovered topics</span></div>', unsafe_allow_html=True)
             unique = list(set(st.session_state.cluster_labels))
@@ -397,7 +470,6 @@ if st.session_state.page == "dashboard":
             st.pyplot(fig)
             plt.close()
 
-            # Topic pills
             st.markdown('<div class="cb-insight"><div class="cb-insight-title">🔖 Discovered topics</div><div class="cb-pill-row">', unsafe_allow_html=True)
             pill_colors = ["", "cb-pill-green", "cb-pill-orange", "cb-pill-blue"]
             pills = ""
@@ -406,7 +478,6 @@ if st.session_state.page == "dashboard":
                 pills += f'<span class="cb-pill {cls}">{name}</span>'
             st.markdown(pills + '</div></div>', unsafe_allow_html=True)
 
-        # Uploaded documents
         if st.session_state.document_names:
             st.markdown('<hr class="cb-divider">', unsafe_allow_html=True)
             st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">📁 Indexed documents</span></div>', unsafe_allow_html=True)
@@ -435,13 +506,12 @@ if st.session_state.page == "dashboard":
             <div class="cb-gap">
               <div class="cb-gap-icon">💡</div>
               <div class="cb-gap-text">
-                <strong>No documents yet.</strong> Upload PDFs in the Upload tab to build your knowledge base. Company Brain supports any PDF — HR policies, technical docs, contracts, manuals.
+                <strong>No documents yet.</strong> Upload PDFs in the Upload tab to build your knowledge base.
               </div>
             </div>
             """, unsafe_allow_html=True)
 
     with right:
-        # Recent query history
         st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">🕑 Recent queries</span></div>', unsafe_allow_html=True)
         if st.session_state.query_history:
             for item in reversed(st.session_state.query_history[-8:]):
@@ -466,7 +536,6 @@ if st.session_state.page == "dashboard":
             </div>
             """, unsafe_allow_html=True)
 
-        # Knowledge gaps summary
         if st.session_state.knowledge_gaps:
             st.markdown('<hr class="cb-divider">', unsafe_allow_html=True)
             st.markdown(f'<div class="cb-sec-hdr"><span class="cb-sec-title">⚠️ Knowledge gaps ({len(st.session_state.knowledge_gaps)})</span></div>', unsafe_allow_html=True)
@@ -501,11 +570,10 @@ elif st.session_state.page == "chat":
 
     st.markdown('<div class="cb-content">', unsafe_allow_html=True)
 
-    # Chat header
     st.markdown("""
     <div style="margin-bottom:16px">
       <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.4px">✨ Ask AI</div>
-      <div style="font-size:12px;color:#555;margin-top:3px">Ask anything about your uploaded documents. Company Brain searches across all indexed content.</div>
+      <div style="font-size:12px;color:#555;margin-top:3px">Ask anything about your uploaded documents.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -517,7 +585,64 @@ elif st.session_state.page == "chat":
         </div>
         """, unsafe_allow_html=True)
 
-    # Render chat history
+    # ── Welcome screen + PDF-aware suggestion chips (empty chat only) ─────────
+    if not st.session_state.messages:
+        st.markdown("""
+        <div class="cb-welcome">
+          <div class="cb-welcome-icon">🧠</div>
+          <h2>What would you like to know?</h2>
+          <p>Pick a suggestion or type your own question below.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        suggestions = st.session_state.pdf_suggestions
+
+        if suggestions:
+            # Show up to 4 chips in a 2-column grid
+            display = suggestions[:4]
+            st.markdown('<div class="cb-sugg-label">Suggested from your documents</div>', unsafe_allow_html=True)
+            col1, col2 = st.columns(2, gap="small")
+            for idx, question in enumerate(display):
+                with (col1 if idx % 2 == 0 else col2):
+                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                    if st.button(f"💬  {question}", key=f"chip_{idx}", use_container_width=True):
+                        st.session_state["_chip_query"] = question
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            # "More suggestions" expander for remaining chips
+            if len(suggestions) > 4:
+                with st.expander(f"Show {len(suggestions) - 4} more suggestions"):
+                    col3, col4 = st.columns(2, gap="small")
+                    for idx, question in enumerate(suggestions[4:]):
+                        with (col3 if idx % 2 == 0 else col4):
+                            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                            if st.button(f"💬  {question}", key=f"chip_more_{idx}", use_container_width=True):
+                                st.session_state["_chip_query"] = question
+                                st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            # No PDFs uploaded yet — show placeholder chips
+            st.markdown('<div class="cb-sugg-label">Upload a PDF to see personalised suggestions</div>', unsafe_allow_html=True)
+            placeholder_qs = [
+                "What are the main topics in this document?",
+                "Summarize the key findings.",
+                "What processes or procedures are described?",
+                "Are there any important dates or deadlines?",
+            ]
+            col1, col2 = st.columns(2, gap="small")
+            for idx, question in enumerate(placeholder_qs):
+                with (col1 if idx % 2 == 0 else col2):
+                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                    # Disabled-look: render as disabled button (no click handler needed)
+                    st.button(f"💬  {question}", key=f"placeholder_{idx}",
+                              use_container_width=True, disabled=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Pick up chip click ────────────────────────────────────────────────────
+    chip_query = st.session_state.pop("_chip_query", None)
+
+    # ── Render chat history ───────────────────────────────────────────────────
     for message in st.session_state.messages:
         role = message["role"]
         with st.chat_message(role, avatar="🧠" if role == "assistant" else "👤"):
@@ -530,7 +655,10 @@ elif st.session_state.page == "chat":
                     st.progress(score, text=f"Confidence: {score:.0%}")
                     st.caption(f"🔁 Attempts: {attempts} · {reason}")
 
+    # ── Chat input ────────────────────────────────────────────────────────────
     user_query = st.chat_input("Ask a question about your documents...")
+    if chip_query:
+        user_query = chip_query   # chip click wins over typed input
 
     if user_query:
         if len(st.session_state.document_names) == 0:
@@ -592,12 +720,10 @@ elif st.session_state.page == "chat":
                 st.progress(score, text=f"Confidence: {score:.0%}")
                 st.caption(f"🔁 Attempts: {attempts} · {reason}")
 
-        # Store query history
         st.session_state.query_history.append({
             "q": user_query, "score": score, "topic": topic_name,
         })
 
-        # Track knowledge gaps (low confidence)
         if score < 0.4:
             if user_query not in st.session_state.knowledge_gaps:
                 st.session_state.knowledge_gaps.append(user_query)
@@ -621,142 +747,375 @@ elif st.session_state.page == "chat":
 elif st.session_state.page == "upload":
     try:
         from utils.pdf_reader import extract_text_from_pdf
+        from utils.url_reader import extract_text_from_url
         from utils.vector_store import store_chunks
         from utils.text_splitter import spit_text_into_chunks
         from utils.embeddings import create_embeddings
         from utils.topic_clustering import cluster_chunks
+        from utils.suggestion_generator import generate_suggestions 
         from utils.topic_namer import generate_topic_name
     except ImportError:
         st.error("Utils not found.")
         st.stop()
+
+    st.markdown("""
+    <style>
+    div[data-testid="stTabs"] button {
+        font-size: 13px !important; font-weight: 500 !important;
+        color: #666 !important; border-radius: 8px 8px 0 0 !important;
+    }
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        color: #a78bfa !important; border-bottom-color: #6B5CE7 !important;
+    }
+    .cb-url-box {
+        background: #13131a; border: 0.5px solid #2e2e42; border-radius: 12px;
+        padding: 20px 22px; margin-bottom: 16px;
+    }
+    .cb-url-box-title { font-size: 13px; font-weight: 600; color: #bbb; margin-bottom: 6px; }
+    .cb-url-box-sub   { font-size: 11px; color: #555; margin-bottom: 14px; line-height: 1.6; }
+    .cb-url-examples  { font-size: 11px; color: #444; margin-top: 10px; line-height: 1.8; }
+    .cb-url-examples span { color: #6B5CE7; }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.markdown('<div class="cb-content">', unsafe_allow_html=True)
 
     st.markdown("""
     <div style="margin-bottom:20px">
       <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.4px">📤 Upload Documents</div>
-      <div style="font-size:12px;color:#555;margin-top:3px">Add PDFs to your knowledge base. Company Brain will extract text, split into chunks, embed with AI, and cluster by topic automatically.</div>
+      <div style="font-size:12px;color:#555;margin-top:3px">
+        Add PDFs or paste a URL. Company Brain extracts text, chunks it, embeds with AI, and clusters by topic.
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Pipeline steps visualization
+    # Pipeline steps
     st.markdown("""
     <div class="cb-steps" style="margin-bottom:20px">
       <div class="cb-step">
         <div class="cb-step-num">STEP 01</div>
         <div style="font-size:18px;margin-bottom:8px">📄</div>
-        <h4>PDF Extraction</h4>
-        <p>Text is extracted from every page of your PDF using PyPDF.</p>
+        <h4>Text Extraction</h4>
+        <p>Text pulled from PDF pages or fetched directly from a URL or web page.</p>
         <span class="cb-step-arrow">→</span>
       </div>
       <div class="cb-step">
         <div class="cb-step-num">STEP 02</div>
         <div style="font-size:18px;margin-bottom:8px">✂️</div>
         <h4>Chunking</h4>
-        <p>Text is split into 1,000-character chunks with 200-character overlap for context continuity.</p>
+        <p>Split into 1,000-char chunks with 200-char overlap for context continuity.</p>
         <span class="cb-step-arrow">→</span>
       </div>
       <div class="cb-step">
         <div class="cb-step-num">STEP 03</div>
         <div style="font-size:18px;margin-bottom:8px">🔢</div>
         <h4>Embedding</h4>
-        <p>Each chunk is encoded into a 384-dimension vector using all-MiniLM-L6-v2.</p>
+        <p>Each chunk encoded into a 384-dim vector using all-MiniLM-L6-v2.</p>
         <span class="cb-step-arrow">→</span>
       </div>
       <div class="cb-step">
         <div class="cb-step-num">STEP 04</div>
         <div style="font-size:18px;margin-bottom:8px">🏷️</div>
         <h4>Topic Clustering</h4>
-        <p>K-Means groups chunks into topics. OpenRouter AI names each cluster automatically.</p>
+        <p>K-Means groups chunks into topics. OpenRouter AI names each cluster.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Stats
-    doc_count = len(st.session_state.document_names)
+    # Stats bar
+    doc_count   = len(st.session_state.document_names)
     topic_count = len(st.session_state.topic_names)
+    total_chunks = sum(st.session_state.doc_chunk_counts.values()) if st.session_state.doc_chunk_counts else 0
+
     st.markdown(f"""
     <div class="cb-stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
-      <div class="cb-stat"><div class="cb-stat-num" style="color:#a78bfa">{doc_count}</div><div class="cb-stat-label">Files indexed</div></div>
+      <div class="cb-stat"><div class="cb-stat-num" style="color:#a78bfa">{doc_count}</div><div class="cb-stat-label">Sources indexed</div></div>
       <div class="cb-stat"><div class="cb-stat-num" style="color:#4CAF7D">{topic_count}</div><div class="cb-stat-label">Topics found</div></div>
-      <div class="cb-stat"><div class="cb-stat-num" style="color:#E5945B">{len(st.session_state.processed_files)}</div><div class="cb-stat-label">PDFs processed</div></div>
+      <div class="cb-stat"><div class="cb-stat-num" style="color:#E5945B">{total_chunks}</div><div class="cb-stat-label">Total chunks stored</div></div>
     </div>
     """, unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader(
-        "Drop PDFs here or click to browse",
-        type=["pdf"], accept_multiple_files=True, label_visibility="visible"
-    )
+    # ── Shared indexing pipeline ──────────────────────────────────────────────
+    def _index_text(text: str, source_name: str):
+        """
+        Chunk → embed → cluster → name topics → store.
+        Also updates doc_embeddings, doc_chunk_counts, doc_topic_maps
+        so Analytics, Duplicates, and Dashboard all have live data.
+        """
+        chunks     = spit_text_into_chunks(text)
+        embeddings = create_embeddings(chunks)
+        labels, kmeans = cluster_chunks(embeddings, n_clusters=4)
 
-    if uploaded_files:
-        for uploaded_file in uploaded_files:
-            if uploaded_file.name in st.session_state.processed_files:
+        st.session_state.cluster_labels    = list(labels)
+        st.session_state.kmeans            = kmeans
+        st.session_state.chunk_cluster_map = {i: int(l) for i, l in enumerate(labels)}
+
+        # Name each topic cluster
+        topic_names = {}
+        for cluster_id in set(labels):
+            cluster_chunks_list = [
+                chunks[i] for i in range(len(chunks)) if labels[i] == cluster_id
+            ]
+            time.sleep(2)   # rate-limit guard for OpenRouter free tier
+            topic_names[cluster_id] = generate_topic_name(cluster_chunks_list)
+
+        st.session_state.topic_names        = topic_names
+        st.session_state.total_chunks_stored += len(chunks)
+
+        # ── Per-document metadata (used by Analytics + Duplicate Detector) ──
+        st.session_state.doc_embeddings[source_name]   = embeddings.mean(axis=0)
+        st.session_state.doc_chunk_counts[source_name] = len(chunks)
+
+        topic_dist = {}
+        for i, label in enumerate(labels):
+            tname = topic_names.get(int(label), f"Cluster {label}")
+            topic_dist[tname] = topic_dist.get(tname, 0) + 1
+        st.session_state.doc_topic_maps[source_name] = topic_dist
+
+        store_chunks(chunks, embeddings, source_name, labels)
+        st.session_state.document_names.add(source_name)
+        st.session_state.processed_files.add(source_name)
+
+        # ── Generate suggestions for both PDFs and URLs ──────────────────────
+        is_url = source_name.startswith("http") or "(" in source_name
+        label  = f"web page ({source_name})" if is_url else f"PDF ({source_name})"
+        new_suggestions = generate_suggestions(chunks, n=8, source_label=label)
+        # Append without duplicates, keep the list fresh (max 20 total)
+        existing = set(st.session_state.pdf_suggestions)
+        for s in new_suggestions:
+            if s not in existing:
+                st.session_state.pdf_suggestions.append(s)
+                existing.add(s)
+        st.session_state.pdf_suggestions = st.session_state.pdf_suggestions[-20:]
+
+        return chunks, topic_names
+
+        
+
+    # ── Source tabs ───────────────────────────────────────────────────────────
+    tab_pdf, tab_url = st.tabs(["📄  PDF Upload", "🌐  From URL"])
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 1 — PDF Upload
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_pdf:
+        uploaded_files = st.file_uploader(
+            "Drop PDFs here or click to browse",
+            type=["pdf"], accept_multiple_files=True,
+            label_visibility="visible"
+        )
+
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+
+                # Already indexed
+                if uploaded_file.name in st.session_state.processed_files:
+                    st.markdown(f"""
+                    <div class="cb-file-item">
+                      <div class="cb-file-icon">📄</div>
+                      <div class="cb-file-info">
+                        <div class="cb-file-name">{uploaded_file.name}</div>
+                        <div class="cb-file-sub">Already indexed — no re-processing needed</div>
+                        <div class="cb-prog-bg"><div class="cb-prog" style="width:100%;background:#4CAF7D"></div></div>
+                      </div>
+                      <span class="cb-status status-indexed">Indexed</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    continue
+
+                # Show progress card
                 st.markdown(f"""
                 <div class="cb-file-item">
                   <div class="cb-file-icon">📄</div>
                   <div class="cb-file-info">
                     <div class="cb-file-name">{uploaded_file.name}</div>
-                    <div class="cb-file-sub">Already indexed — no re-processing needed</div>
-                    <div class="cb-prog-bg"><div class="cb-prog" style="width:100%;background:#4CAF7D"></div></div>
+                    <div class="cb-file-sub">Processing — extracting, chunking, embedding...</div>
+                    <div class="cb-prog-bg"><div class="cb-prog" style="width:55%;background:#8B7FF0"></div></div>
                   </div>
-                  <span class="cb-status status-indexed">Indexed</span>
+                  <span class="cb-status status-indexing">Indexing</span>
                 </div>
                 """, unsafe_allow_html=True)
-                continue
 
-            st.markdown(f"""
-            <div class="cb-file-item">
-              <div class="cb-file-icon">📄</div>
-              <div class="cb-file-info">
-                <div class="cb-file-name">{uploaded_file.name}</div>
-                <div class="cb-file-sub">Processing — extracting, chunking, embedding...</div>
-                <div class="cb-prog-bg"><div class="cb-prog" style="width:55%;background:#8B7FF0"></div></div>
-              </div>
-              <span class="cb-status status-indexing">Indexing</span>
-            </div>
-            """, unsafe_allow_html=True)
+                with st.spinner(f"Indexing {uploaded_file.name}..."):
+                    text = extract_text_from_pdf(uploaded_file)
+                    chunks, topic_names = _index_text(text, uploaded_file.name)
 
-            with st.spinner(f"Indexing {uploaded_file.name}..."):
-                text = extract_text_from_pdf(uploaded_file)
-                chunks = spit_text_into_chunks(text)
-                embeddings = create_embeddings(chunks)
-                labels, kmeans = cluster_chunks(embeddings, n_clusters=4)
-                st.session_state.cluster_labels = list(labels)
-                st.session_state.kmeans = kmeans
+                st.success(
+                    f"✅ **{uploaded_file.name}** indexed — "
+                    f"{len(chunks)} chunks · {len(topic_names)} topics"
+                )
 
-                chunk_cluster_map = {i: int(label) for i, label in enumerate(labels)}
-                st.session_state.chunk_cluster_map = chunk_cluster_map
+                if topic_names:
+                    pills = " ".join([
+                        f'<span class="cb-pill">{n}</span>'
+                        for n in topic_names.values()
+                    ])
+                    st.markdown(
+                        f'<div style="margin:4px 0 16px">'
+                        f'<div class="cb-pill-row">{pills}</div></div>',
+                        unsafe_allow_html=True
+                    )
 
-                topic_names = {}
-                for cluster_id in set(labels):
-                    cluster_chunks_list = [chunks[i] for i in range(len(chunks)) if labels[i] == cluster_id]
-                    time.sleep(2)
-                    topic_names[cluster_id] = generate_topic_name(cluster_chunks_list)
-                st.session_state.topic_names = topic_names
-                st.session_state.total_chunks_stored += len(chunks)
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 2 — From URL
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_url:
+        st.markdown("""
+        <div class="cb-url-box">
+          <div class="cb-url-box-title">🌐 Index a web page or online PDF</div>
+          <div class="cb-url-box-sub">
+            Paste any public URL — a web article, documentation page, blog post,
+            or a direct link to a PDF. Company Brain will fetch and index it just
+            like an uploaded file.
+          </div>
+          <div class="cb-url-examples">
+            Works with:
+            <span>https://docs.example.com/guide</span> &nbsp;·&nbsp;
+            <span>https://arxiv.org/pdf/2301.00001.pdf</span> &nbsp;·&nbsp;
+            <span>https://en.wikipedia.org/wiki/Topic</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-                store_chunks(chunks, embeddings, uploaded_file.name, labels)
-                st.session_state.document_names.add(uploaded_file.name)
-                st.session_state.processed_files.add(uploaded_file.name)
+        url_input = st.text_area(
+            "Enter one or more URLs (one per line)",
+            placeholder=(
+                "https://example.com/document\n"
+                "https://arxiv.org/pdf/paper.pdf"
+            ),
+            height=110,
+            label_visibility="collapsed",
+        )
 
-            st.success(f"✅ {uploaded_file.name} indexed — {len(chunks)} chunks · {len(topic_names)} topics discovered")
+        # Crawl depth / page limit controls
+        uc1, uc2, uc3 = st.columns([2, 2, 3])
+        with uc1:
+            max_depth = st.selectbox(
+                "Crawl depth",
+                options=[1, 2, 3],
+                index=1,
+                help="1 = single page only · 2 = page + linked subpages · 3 = deeper crawl"
+            )
+        with uc2:
+            max_pages = st.selectbox(
+                "Max pages",
+                options=[1, 5, 10, 20, 30],
+                index=2,
+                help="Max number of pages to fetch per URL"
+            )
 
-            # Show discovered topics
-            if topic_names:
-                pills = " ".join([f'<span class="cb-pill">{n}</span>' for n in topic_names.values()])
-                st.markdown(f'<div style="margin-top:4px;margin-bottom:16px"><div class="cb-pill-row">{pills}</div></div>', unsafe_allow_html=True)
+        col_btn, _ = st.columns([1, 5])
+        with col_btn:
+            fetch_clicked = st.button(
+                "🌐 Fetch & Index", type="primary", use_container_width=True
+            )
 
-    # Indexed documents list
+        if fetch_clicked and url_input.strip():
+            urls = [u.strip() for u in url_input.strip().splitlines() if u.strip()]
+
+            for url in urls:
+
+                # Already indexed
+                if url in st.session_state.processed_files:
+                    st.markdown(f"""
+                    <div class="cb-file-item">
+                      <div class="cb-file-icon">🌐</div>
+                      <div class="cb-file-info">
+                        <div class="cb-file-name">{url[:70]}{'…' if len(url)>70 else ''}</div>
+                        <div class="cb-file-sub">Already indexed — no re-processing needed</div>
+                        <div class="cb-prog-bg"><div class="cb-prog" style="width:100%;background:#4CAF7D"></div></div>
+                      </div>
+                      <span class="cb-status status-indexed">Indexed</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    continue
+
+                # Fetching card
+                st.markdown(f"""
+                <div class="cb-file-item">
+                  <div class="cb-file-icon">🌐</div>
+                  <div class="cb-file-info">
+                    <div class="cb-file-name">{url[:70]}{'…' if len(url)>70 else ''}</div>
+                    <div class="cb-file-sub">Fetching page and extracting text...</div>
+                    <div class="cb-prog-bg"><div class="cb-prog" style="width:40%;background:#8B7FF0"></div></div>
+                  </div>
+                  <span class="cb-status status-indexing">Fetching</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+                try:
+                    with st.spinner(f"Fetching {url[:60]}..."):
+                        text, source_name = extract_text_from_url(
+                            url,
+                            max_depth=max_depth,
+                            max_pages=max_pages
+                        )
+
+                    # Indexing card
+                    st.markdown(f"""
+                    <div class="cb-file-item">
+                      <div class="cb-file-icon">🌐</div>
+                      <div class="cb-file-info">
+                        <div class="cb-file-name">{source_name}</div>
+                        <div class="cb-file-sub">Indexing — chunking, embedding, clustering...</div>
+                        <div class="cb-prog-bg"><div class="cb-prog" style="width:70%;background:#8B7FF0"></div></div>
+                      </div>
+                      <span class="cb-status status-indexing">Indexing</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    with st.spinner(f"Indexing {source_name}..."):
+                        chunks, topic_names = _index_text(text, source_name)
+
+                    # Also register the raw URL so duplicate check works
+                    st.session_state.processed_files.add(url)
+
+                    st.success(
+                        f"✅ **{source_name}** indexed — "
+                        f"{len(chunks)} chunks · {len(topic_names)} topics · "
+                        f"{max_pages} page(s) crawled"
+                    )
+
+                    if topic_names:
+                        pills = " ".join([
+                            f'<span class="cb-pill">{n}</span>'
+                            for n in topic_names.values()
+                        ])
+                        st.markdown(
+                            f'<div style="margin:4px 0 16px">'
+                            f'<div class="cb-pill-row">{pills}</div></div>',
+                            unsafe_allow_html=True
+                        )
+
+                except ValueError as e:
+                    st.error(f"❌ **{url[:60]}** — {e}")
+                except Exception as e:
+                    st.error(f"❌ Unexpected error for **{url[:60]}**: {e}")
+
+        elif fetch_clicked:
+            st.warning("Please enter at least one URL.")
+
+    # ── Indexed sources list ──────────────────────────────────────────────────
     if st.session_state.document_names:
         st.markdown('<hr class="cb-divider">', unsafe_allow_html=True)
-        st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">📁 Indexed documents</span></div>', unsafe_allow_html=True)
-        for doc in st.session_state.document_names:
+        st.markdown(
+            '<div class="cb-sec-hdr">'
+            '<span class="cb-sec-title">📁 Indexed sources</span>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        colors_bg = ["#2a2560","#0d1e35","#0d2e1a","#2e1e0d","#0d2e28"]
+        for i, doc in enumerate(list(st.session_state.document_names)):
+            bg     = colors_bg[i % len(colors_bg)]
+            ico    = "🌐" if doc.startswith("http") else "📄"
+            chunks = st.session_state.doc_chunk_counts.get(doc, "?")
+            topics = len(st.session_state.doc_topic_maps.get(doc, {}))
             st.markdown(f"""
             <div class="cb-file-item">
-              <div class="cb-file-icon">📄</div>
+              <div class="cb-file-icon" style="background:{bg}">{ico}</div>
               <div class="cb-file-info">
                 <div class="cb-file-name">{doc}</div>
-                <div class="cb-file-sub">Chunked · Embedded · Clustered · Ready to query</div>
+                <div class="cb-file-sub">{chunks} chunks · {topics} topics · Chunked · Embedded · Clustered</div>
                 <div class="cb-prog-bg"><div class="cb-prog" style="width:100%;background:#4CAF7D"></div></div>
               </div>
               <span class="cb-status status-indexed">Indexed</span>
@@ -764,7 +1123,6 @@ elif st.session_state.page == "upload":
             """, unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: KNOWLEDGE GAPS
@@ -790,13 +1148,13 @@ elif st.session_state.page == "gaps":
               <div class="cb-gap-icon">⚠️</div>
               <div class="cb-gap-text">
                 <strong>{len(st.session_state.knowledge_gaps)} unanswered question{"s" if len(st.session_state.knowledge_gaps)!=1 else ""} detected.</strong>
-                These questions returned low-confidence answers. Consider uploading more relevant documents to fill these gaps.
+                Consider uploading more relevant documents to fill these gaps.
               </div>
             </div>
             """, unsafe_allow_html=True)
 
             st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">Unanswered questions</span></div>', unsafe_allow_html=True)
-            for i, gq in enumerate(st.session_state.knowledge_gaps):
+            for gq in st.session_state.knowledge_gaps:
                 st.markdown(f"""
                 <div class="cb-query-item" style="border-color:#3a2e10">
                   <span style="font-size:18px">⚠️</span>
@@ -826,13 +1184,12 @@ elif st.session_state.page == "gaps":
           <div class="cb-insight-title">📋 Recommended actions</div>
           <div style="font-size:12px;color:#666;line-height:1.9">
             <div style="margin-bottom:8px">📄 <strong style="color:#aaa">Upload related PDFs</strong><br>Add documents that cover the unanswered topics above.</div>
-            <div style="margin-bottom:8px">🔍 <strong style="color:#aaa">Check document quality</strong><br>Make sure uploaded PDFs have readable, searchable text (not scanned images).</div>
-            <div>🔢 <strong style="color:#aaa">Increase clusters</strong><br>If your documents cover many topics, increase the cluster count in settings for better retrieval.</div>
+            <div style="margin-bottom:8px">🔍 <strong style="color:#aaa">Check document quality</strong><br>Make sure uploaded PDFs have readable, searchable text.</div>
+            <div>🔢 <strong style="color:#aaa">Increase clusters</strong><br>If your documents cover many topics, increase the cluster count for better retrieval.</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Query confidence histogram
         if st.session_state.query_history:
             st.markdown('<hr class="cb-divider">', unsafe_allow_html=True)
             st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">📊 Confidence distribution</span></div>', unsafe_allow_html=True)
@@ -851,57 +1208,65 @@ elif st.session_state.page == "gaps":
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: FEATURES
+# PAGE: FEATURES  (updated to match actual utils/ implementation)
 # ═══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "features":
     st.markdown('<div class="cb-content">', unsafe_allow_html=True)
 
     st.markdown("""
     <div class="cb-hero" style="margin-bottom:28px">
-      <div class="cb-hero-badge"><span class="cb-hero-badge-dot"></span>RAG · Semantic Search · OpenRouter AI · DeepEval</div>
+      <div class="cb-hero-badge"><span class="cb-hero-badge-dot"></span>RAG · Hybrid Retrieval · Groq Dual-Model · LLM-as-Judge</div>
       <h1>How <span>Company Brain</span> works</h1>
-      <p>A full Retrieval-Augmented Generation (RAG) pipeline — from raw PDF to intelligent, context-aware answers. Built with sentence-transformers, ChromaDB, K-Means clustering, OpenRouter, and DeepEval scoring.</p>
+      <p>A full Retrieval-Augmented Generation (RAG) pipeline — from raw PDF or URL to intelligent, context-aware, self-scored answers. Built with sentence-transformers, ChromaDB, K-Means clustering, and Groq.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Core features
     st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">🚀 Core features</span></div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="cb-features">
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#1e1a35">🔢</div>
         <h3>Semantic Vector Search</h3>
-        <p>Documents are embedded using <strong style="color:#aaa">all-MiniLM-L6-v2</strong> into 384-dimensional vectors. Queries are matched by cosine similarity — finding meaning, not just keywords.</p>
+        <p>Documents are embedded using <strong style="color:#aaa">all-MiniLM-L6-v2</strong> into 384-dimensional vectors and stored in ChromaDB, matched by similarity — finding meaning, not just keywords.</p>
       </div>
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#0d1e35">🏷️</div>
         <h3>Auto Topic Clustering</h3>
-        <p><strong style="color:#aaa">K-Means clustering</strong> groups document chunks into topics automatically. OpenRouter AI then names each cluster in plain language — no manual tagging needed.</p>
+        <p><strong style="color:#aaa">K-Means clustering</strong> groups document chunks into topics automatically. Groq names each cluster in plain language (2–4 words) — no manual tagging needed.</p>
       </div>
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#0d2e1a">🔍</div>
         <h3>Hybrid Retrieval</h3>
-        <p>Combines <strong style="color:#aaa">vector similarity search</strong> and <strong style="color:#aaa">BM25-style keyword search</strong> for maximum recall. The best of both worlds in every query.</p>
+        <p>Every query is routed to its predicted topic cluster for <strong style="color:#aaa">cluster-scoped vector search</strong>, then merged with a <strong style="color:#aaa">keyword search</strong> pass across all chunks for extra recall.</p>
       </div>
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#2e1e0d">💬</div>
         <h3>Conversation Memory</h3>
-        <p>Company Brain remembers the last <strong style="color:#aaa">4 exchanges</strong> in your conversation, enabling natural follow-up questions without losing context.</p>
+        <p>Company Brain keeps a rolling window of the last <strong style="color:#aaa">4 messages</strong> and feeds it back into every prompt, enabling natural follow-up questions.</p>
       </div>
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#0d2e28">⚡</div>
-        <h3>Answer Quality Scoring</h3>
-        <p>Every response is scored for confidence and retried up to <strong style="color:#aaa">3 times</strong> if quality is low — so you always get the best possible answer.</p>
+        <h3>LLM-as-Judge Scoring</h3>
+        <p>A second, separate Groq model scores every answer for <strong style="color:#aaa">faithfulness</strong> and <strong style="color:#aaa">relevancy</strong> (0–1 each). If either falls below 0.5, the answer is regenerated — up to <strong style="color:#aaa">3 attempts</strong> — and the highest-scoring version is kept.</p>
       </div>
       <div class="cb-feature">
-        <div class="cb-feature-icon" style="background:#2a1030">⚠️</div>
+        <div class="cb-feature-icon" style="background:#2a1030">💡</div>
+        <h3>Smart Suggestions</h3>
+        <p>After indexing, Groq samples chunks spread across the source and generates <strong style="color:#aaa">specific, answerable questions</strong> — shown as chips on the Ask AI page, for both PDFs and URLs.</p>
+      </div>
+      <div class="cb-feature">
+        <div class="cb-feature-icon" style="background:#1a2a3a">🌐</div>
+        <h3>URL &amp; Web Crawling</h3>
+        <p>Paste a link instead of a file. Direct PDF URLs are parsed in place; regular web pages are crawled recursively (configurable depth &amp; page limit) and cleaned with BeautifulSoup before indexing.</p>
+      </div>
+      <div class="cb-feature">
+        <div class="cb-feature-icon" style="background:#3a1a2a">⚠️</div>
         <h3>Knowledge Gap Detection</h3>
-        <p>Low-confidence answers are automatically flagged as <strong style="color:#aaa">knowledge gaps</strong> — showing you exactly which topics need more documents.</p>
+        <p>Any answer scoring below <strong style="color:#aaa">40% confidence</strong> is logged as a knowledge gap — a visible signal of what your document set is still missing.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Tech stack
     st.markdown('<hr class="cb-divider">', unsafe_allow_html=True)
     st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">🛠️ Tech stack</span></div>', unsafe_allow_html=True)
     st.markdown("""
@@ -914,95 +1279,41 @@ elif st.session_state.page == "features":
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#0d1e35;font-size:22px">🗄️</div>
         <h3>ChromaDB</h3>
-        <p>Persistent vector store for fast approximate nearest-neighbor search across all document embeddings.</p>
+        <p>Persistent vector store. Cluster-filtered queries (<code style="color:#5BA4E5;font-size:10px">where: cluster</code>) keep retrieval scoped to the right topic.</p>
       </div>
       <div class="cb-feature">
-        <div class="cb-feature-icon" style="background:#0d2e1a;font-size:22px">🤖</div>
-        <h3>OpenRouter AI</h3>
-        <p>Flexible LLM gateway for answer generation and topic naming — swap models without changing code.</p>
-      </div>
-      <div class="cb-feature">
-        <div class="cb-feature-icon" style="background:#2a1030;font-size:22px">📊</div>
-        <h3>DeepEval</h3>
-        <p><code style="color:#E57FAA;font-size:10px">FaithfulnessMetric + AnswerRelevancyMetric</code><br>Scores every answer for quality with a dedicated judge model.</p>
+        <div class="cb-feature-icon" style="background:#0d2e1a;font-size:22px">⚡</div>
+        <h3>Groq — Dual Model</h3>
+        <p><code style="color:#4CAF7D;font-size:10px">llama-3.3-70b-versatile</code> generates answers, names topics &amp; writes suggestions. <code style="color:#4CAF7D;font-size:10px">llama-3.1-8b-instant</code> independently judges each answer.</p>
       </div>
       <div class="cb-feature">
         <div class="cb-feature-icon" style="background:#2e1e0d;font-size:22px">📐</div>
-        <h3>LangChain Splitter</h3>
-        <p><code style="color:#E5945B;font-size:10px">RecursiveCharacterTextSplitter</code><br>Splits docs into 1,000-char chunks with 200-char overlap.</p>
+        <h3>LangChain</h3>
+        <p><code style="color:#E5945B;font-size:10px">RecursiveCharacterTextSplitter</code> (1,000 / 200 overlap) for chunking, <code style="color:#E5945B;font-size:10px">RecursiveUrlLoader</code> for multi-page web crawling.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # RAG pipeline diagram
     st.markdown('<hr class="cb-divider">', unsafe_allow_html=True)
     st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">🔄 RAG pipeline</span></div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="cb-pipeline-wrap">
       <div class="cb-pipeline">
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">📄</div>
-          <div class="cb-pipeline-label">PDF Upload</div>
-          <div class="cb-pipeline-sub">PyPDF extraction</div>
-        </div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">📄</div><div class="cb-pipeline-label">PDF / URL</div><div class="cb-pipeline-sub">PyPDF or web crawl</div></div>
         <div class="cb-pipeline-arrow">→</div>
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">✂️</div>
-          <div class="cb-pipeline-label">Chunking</div>
-          <div class="cb-pipeline-sub">1000 chars / 200 overlap</div>
-        </div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">✂️</div><div class="cb-pipeline-label">Chunking</div><div class="cb-pipeline-sub">1000 chars / 200 overlap</div></div>
         <div class="cb-pipeline-arrow">→</div>
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">🔢</div>
-          <div class="cb-pipeline-label">Embedding</div>
-          <div class="cb-pipeline-sub">384-dim vectors</div>
-        </div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">🔢</div><div class="cb-pipeline-label">Embedding</div><div class="cb-pipeline-sub">384-dim vectors</div></div>
         <div class="cb-pipeline-arrow">→</div>
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">🏷️</div>
-          <div class="cb-pipeline-label">Clustering</div>
-          <div class="cb-pipeline-sub">K-Means + AI naming</div>
-        </div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">🏷️</div><div class="cb-pipeline-label">Clustering</div><div class="cb-pipeline-sub">K-Means + Groq naming</div></div>
         <div class="cb-pipeline-arrow">→</div>
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">🗄️</div>
-          <div class="cb-pipeline-label">ChromaDB</div>
-          <div class="cb-pipeline-sub">Persistent storage</div>
-        </div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">🗄️</div><div class="cb-pipeline-label">ChromaDB</div><div class="cb-pipeline-sub">Persistent storage</div></div>
         <div class="cb-pipeline-arrow">→</div>
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">🤖</div>
-          <div class="cb-pipeline-label">OpenRouter AI</div>
-          <div class="cb-pipeline-sub">Answer generation</div>
-        </div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">🔍</div><div class="cb-pipeline-label">Hybrid Retrieval</div><div class="cb-pipeline-sub">Cluster vector + keyword</div></div>
         <div class="cb-pipeline-arrow">→</div>
-        <div class="cb-pipeline-step">
-          <div class="cb-pipeline-icon">📊</div>
-          <div class="cb-pipeline-label">DeepEval</div>
-          <div class="cb-pipeline-sub">Faithfulness scoring</div>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Use cases
-    st.markdown('<div class="cb-sec-hdr"><span class="cb-sec-title">💼 Use cases</span></div>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="cb-features" style="grid-template-columns:repeat(3,1fr)">
-      <div class="cb-feature">
-        <div class="cb-feature-icon" style="background:#0d2e1a;font-size:20px">🏢</div>
-        <h3>HR & Policy</h3>
-        <p>Upload employee handbooks, leave policies, and HR FAQs. Let employees ask questions in plain language instead of searching through PDFs.</p>
-      </div>
-      <div class="cb-feature">
-        <div class="cb-feature-icon" style="background:#0d1e35;font-size:20px">⚙️</div>
-        <h3>Technical Docs</h3>
-        <p>Index API references, architecture docs, and runbooks. Developers get instant answers without switching contexts.</p>
-      </div>
-      <div class="cb-feature">
-        <div class="cb-feature-icon" style="background:#2a1030;font-size:20px">⚖️</div>
-        <h3>Legal & Compliance</h3>
-        <p>Upload contracts, SOPs, and compliance docs. Ask about specific clauses, obligations, and deadlines instantly.</p>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">⚡</div><div class="cb-pipeline-label">Groq Answer</div><div class="cb-pipeline-sub">+ chat history</div></div>
+        <div class="cb-pipeline-arrow">→</div>
+        <div class="cb-pipeline-step"><div class="cb-pipeline-icon">⚖️</div><div class="cb-pipeline-label">Judge &amp; Retry</div><div class="cb-pipeline-sub">Faithfulness + relevancy</div></div>
       </div>
     </div>
     """, unsafe_allow_html=True)

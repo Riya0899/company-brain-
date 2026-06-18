@@ -1,4 +1,4 @@
-from openai import OpenAI
+from groq import Groq
 from dotenv import load_dotenv
 from utils.evaluator import evaluate_answer
 import os
@@ -6,12 +6,10 @@ import time
 
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
-)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-MODEL = "openrouter/free"
+MODEL = "llama-3.3-70b-versatile"   # fast + free on Groq
+
 
 def generate_answer(context, question):
     prompt = f"""
