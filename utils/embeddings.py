@@ -1,9 +1,13 @@
+# utils/embeddings.py
+import streamlit as st
 from sentence_transformers import SentenceTransformer
-model = SentenceTransformer('all-MiniLM-L6-v2')
-#thise model already learned - language meaning, similarity, context relation
+import numpy as np
 
-def create_embeddings(chunks):
-    embeddings = model.encode(chunks)
-    return embeddings.astype('float64')
+@st.cache_resource
+def _load_model():
+    return SentenceTransformer('all-MiniLM-L6-v2')
 
+model = _load_model()
 
+def create_embeddings(chunks: list[str]) -> np.ndarray:
+    return model.encode(chunks, convert_to_numpy=True)
