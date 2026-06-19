@@ -29,6 +29,7 @@ def get_all_chunks():
     results=collection.get()
     return results["documents"]
 
+
 def search_cluster_chunks(
     query_embedding,
     cluster_id,
