@@ -7,11 +7,11 @@ Falls back to single-page requests for direct PDF links.
 """
 
 import re
-import requests
-from io import BytesIO
+import requests #used to fetch webpages
+from io import BytesIO #BytesIO converts into something that behaves like a file
 from pypdf import PdfReader
 from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup #parses HTML
 
 
 HEADERS = {
@@ -20,7 +20,7 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     )
-}
+} #it tells the site like i am a chrome browser instead of unknown bot (as some sites block bots)
 TIMEOUT = 15
 
 
@@ -32,7 +32,7 @@ def _bs4_extractor(html: str) -> str:
     for tag in soup(["script", "style", "nav", "footer",
                      "header", "aside", "form", "noscript",
                      "iframe", "svg"]):
-        tag.decompose()
+        tag.decompose() #completely removes
 
     # Prefer article/main for cleaner text
     body = (
@@ -45,7 +45,7 @@ def _bs4_extractor(html: str) -> str:
 
     parts = []
     for el in body.find_all(["h1","h2","h3","h4","p","li","td","th"]):
-        t = el.get_text(separator=" ", strip=True)
+        t = el.get_text(separator=" ", strip=True) #extract text only
         if t:
             parts.append(t)
 
@@ -137,7 +137,7 @@ def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> 
             "Very little text extracted. The site may block scraping or require login."
         )
 
-    return text, _url_to_name(url)
+    return text, _url_to_name(url) # converts non understandable url to readable title
 
 
 def _url_to_name(url: str) -> str:

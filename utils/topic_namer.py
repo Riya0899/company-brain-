@@ -3,14 +3,14 @@ from dotenv import load_dotenv
 import os
 import time  # it will pause the program when rate limit exceeds
 
-load_dotenv()  # lod the value to memory
+load_dotenv()  # load the value to memory
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY")) # groq is creating the connection
 
 MODEL = "llama-3.3-70b-versatile"
 
 
-def generate_topic_name(sample_chunks, retries=3):  # retries means iif something fails it will try upto three times
+def generate_topic_name(sample_chunks, retries=3):  # retries means if something fails it will try upto three times
     context = "\n".join(sample_chunks[:3]) # takes first three chunks
     prompt = f"""
     The following text chunks belong to the same topic.
@@ -28,7 +28,7 @@ def generate_topic_name(sample_chunks, retries=3):  # retries means iif somethin
                 model=MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,  # creativity
-                max_tokens=20,   # limit the answer's length
+                max_tokens=20,  #Limits response length
             )
             return response.choices[0].message.content.strip()
 

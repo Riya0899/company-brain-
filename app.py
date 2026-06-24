@@ -296,7 +296,7 @@ with st.sidebar:
         if st.button(label, use_container_width=True,
                      type="primary" if st.session_state.page == key else "secondary",
                      key=f"nav_{key}"):
-            st.session_state.page = key
+            st.session_state.page = key # for changing the page
             st.rerun()
 
     st.markdown(f"""

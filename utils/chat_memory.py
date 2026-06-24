@@ -1,6 +1,6 @@
 def get_recent_chat(messages,limit=4):
     history=[]
-    for message in messages[-limit:]:  # -limit gets llast four mesaages
+    for message in messages[-limit:]:  # -limit gets last four mesaages
         role=message['role']
         content=message['content']
         history.append(

@@ -1,142 +1,101 @@
 """
 evaluator.py
 ------------
-Scores each answer for faithfulness and relevancy using a Groq-powered
-judge model — no DeepEval dependency on the LLM side.
+Scores each answer for faithfulness and relevancy using DeepEval's
+built-in metrics (FaithfulnessMetric, AnswerRelevancyMetric), powered
+by a custom Groq LLM wrapper.
 
-Scoring logic mirrors DeepEval's approach:
-  • Faithfulness  – does the answer stick to the retrieved context?
-  • Relevancy     – does the answer actually address the question?
-
-Both scores are 0.0–1.0; the average becomes the confidence shown in the UI.
-Threshold for "passed" is 0.5 on each metric.
+Threshold for "passed" is 0.5 on each metric (matches DeepEval default
+metric.threshold usage).
 """
 
-from groq import Groq
-from dotenv import load_dotenv
 import os
 import json
 import re
+from dotenv import load_dotenv
+
+from groq import Groq
+
+from deepeval.models import DeepEvalBaseLLM
+from deepeval.metrics import FaithfulnessMetric, AnswerRelevancyMetric
+from deepeval.test_case import LLMTestCase
 
 load_dotenv()
 
-# Use a smaller / faster model for evaluation to save quota on the main model
 JUDGE_MODEL = "llama-3.1-8b-instant"
-
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-
-# ── helpers ──────────────────────────────────────────────────────────────────
-
-def _ask_judge(prompt: str) -> str:
-    """Send a single prompt to the judge and return the raw text reply."""
-    response = client.chat.completions.create(
-        model=JUDGE_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a strict evaluation assistant. "
-                    "Always respond with valid JSON only. "
-                    "No markdown, no extra text, no code fences."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-        max_tokens=256,
-    )
-    return response.choices[0].message.content.strip()
+THRESHOLD = 0.5
 
 
-def _parse_score(raw: str, key: str = "score") -> float:
+# ── Custom Groq wrapper for DeepEval ────────────────────────────────────────
+
+class GroqDeepEvalModel(DeepEvalBaseLLM):
     """
-    Extract a numeric score from a JSON string returned by the judge.
-    Falls back gracefully if parsing fails.
+    Minimal DeepEvalBaseLLM implementation backed by Groq.
+    DeepEval calls generate()/a_generate() and expects either plain text
+    or, when a schema is passed, a parsed pydantic object. We handle the
+    schema case by asking for JSON and parsing it ourselves.
     """
-    # Strip accidental markdown fences just in case
-    clean = re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
-    try:
-        data = json.loads(clean)
-        score = float(data.get(key, 0.0))
-        return max(0.0, min(1.0, score))   # clamp to [0, 1]
-    except Exception:
-        # Last-ditch: look for the first float/int in the string
-        nums = re.findall(r"\b(0(?:\.\d+)?|1(?:\.0+)?)\b", clean)
-        if nums:
-            return float(nums[0])
-        return 0.5   # neutral fallback
+
+    def __init__(self, model_name: str = JUDGE_MODEL):
+        self.model_name = model_name
+        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+    def load_model(self):
+        return self.client
+
+    def _chat(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a strict evaluation assistant. "
+                        "Always respond with valid JSON only. "
+                        "No markdown, no extra text, no code fences."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=512,
+        )
+        return response.choices[0].message.content.strip()
+
+    @staticmethod
+    def _clean_json(raw: str) -> str:
+        return re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
+
+    def generate(self, prompt: str, schema=None):
+        raw = self._chat(prompt) #gets response from Groq
+        clean = self._clean_json(raw)
+
+        if schema is None:
+            return raw
+
+        # DeepEval metrics pass a pydantic schema and expect an instance back.
+        try:
+            data = json.loads(clean)
+            return schema(**data) #creates pydantic object
+        except Exception:
+            # Last-ditch fallback so DeepEval doesn't crash the whole eval run
+            try:
+                return schema()
+            except Exception:
+                raise
+
+    async def a_generate(self, prompt: str, schema=None):
+        # Groq's python client call above is sync; just reuse it.
+        return self.generate(prompt, schema=schema)
+
+    def get_model_name(self):
+        return f"groq/{self.model_name}"
 
 
-# ── faithfulness ─────────────────────────────────────────────────────────────
-
-FAITHFULNESS_PROMPT = """
-You will evaluate whether an AI answer is faithful to the provided context.
-
-CONTEXT (retrieved document chunks):
-{context}
-
-ANSWER:
-{answer}
-
-Score faithfulness from 0.0 to 1.0:
-  1.0 = every claim in the answer is directly supported by the context
-  0.5 = some claims are supported; some are not
-  0.0 = the answer contradicts or ignores the context entirely
-
-Respond ONLY with this JSON:
-{{"score": <number between 0.0 and 1.0>, "reason": "<one sentence>"}}
-"""
-
-
-def _faithfulness_score(answer: str, context_chunks: list[str]) -> tuple[float, str]:
-    context = "\n\n".join(context_chunks[:5])   # cap to avoid token overflow
-    prompt = FAITHFULNESS_PROMPT.format(context=context, answer=answer)
-    raw = _ask_judge(prompt)
-    score = _parse_score(raw, "score")
-    try:
-        reason = json.loads(re.sub(r"```[a-z]*", "", raw).strip().strip("`")).get("reason", "")
-    except Exception:
-        reason = ""
-    return score, reason
-
-
-# ── relevancy ────────────────────────────────────────────────────────────────
-
-RELEVANCY_PROMPT = """
-You will evaluate whether an AI answer actually addresses the user's question.
-
-QUESTION:
-{question}
-
-ANSWER:
-{answer}
-
-Score answer relevancy from 0.0 to 1.0:
-  1.0 = the answer fully and directly addresses the question
-  0.5 = the answer is partially relevant
-  0.0 = the answer is off-topic or does not address the question at all
-
-Respond ONLY with this JSON:
-{{"score": <number between 0.0 and 1.0>, "reason": "<one sentence>"}}
-"""
-
-
-def _relevancy_score(question: str, answer: str) -> tuple[float, str]:
-    prompt = RELEVANCY_PROMPT.format(question=question, answer=answer)
-    raw = _ask_judge(prompt)
-    score = _parse_score(raw, "score")
-    try:
-        reason = json.loads(re.sub(r"```[a-z]*", "", raw).strip().strip("`")).get("reason", "")
-    except Exception:
-        reason = ""
-    return score, reason
+_judge_model = GroqDeepEvalModel()
 
 
 # ── public API ───────────────────────────────────────────────────────────────
-
-THRESHOLD = 0.5
-
 
 def evaluate_answer(
     question: str,
@@ -144,7 +103,8 @@ def evaluate_answer(
     context_chunks: list[str],
 ) -> tuple[bool, float, str]:
     """
-    Evaluate an answer using Groq as the judge model.
+    Evaluate an answer using DeepEval (Faithfulness + AnswerRelevancy),
+    judged by a Groq-backed model.
 
     Returns
     -------
@@ -158,16 +118,39 @@ def evaluate_answer(
     if not isinstance(context_chunks, list):
         context_chunks = [context_chunks]
 
+    context = context_chunks[:5]  # cap to avoid token overflow
+
     try:
-        faith_score, faith_reason = _faithfulness_score(answer, context_chunks)
-        rel_score, rel_reason = _relevancy_score(question, answer)
+        test_case = LLMTestCase(
+            input=question,
+            actual_output=answer,
+            retrieval_context=context,
+            context=context,
+        )
+
+        faithfulness_metric = FaithfulnessMetric(
+            threshold=THRESHOLD,
+            model=_judge_model,
+            include_reason=True,
+        )
+        relevancy_metric = AnswerRelevancyMetric(
+            threshold=THRESHOLD,
+            model=_judge_model,
+            include_reason=True,
+        )
+
+        faithfulness_metric.measure(test_case)
+        relevancy_metric.measure(test_case)
+
+        faith_score = faithfulness_metric.score or 0.0
+        rel_score = relevancy_metric.score or 0.0
 
         avg_score = (faith_score + rel_score) / 2
         passed = faith_score >= THRESHOLD and rel_score >= THRESHOLD
 
         reason = (
-            f"Faithfulness: {faith_score:.2f} ({faith_reason}) | "
-            f"Relevancy: {rel_score:.2f} ({rel_reason})"
+            f"Faithfulness: {faith_score:.2f} ({faithfulness_metric.reason}) | "
+            f"Relevancy: {rel_score:.2f} ({relevancy_metric.reason})"
         )
         return passed, avg_score, reason
 
