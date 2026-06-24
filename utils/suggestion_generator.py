@@ -11,7 +11,7 @@ Two modes:
 
 from groq import Groq
 from dotenv import load_dotenv
-import os
+import os #to access environment variables
 import re
 
 load_dotenv()
@@ -41,7 +41,7 @@ def generate_suggestions(
         sample = chunks
     else:
         step = len(chunks) // 6
-        sample = [chunks[i] for i in range(0, len(chunks), step)][:6]
+        sample = [chunks[i] for i in range(0, len(chunks), step)][:6] #avoids token overload
 
     context = "\n\n---\n\n".join(sample)
 
@@ -66,17 +66,17 @@ Generate {n} questions:
         response = client.chat.completions.create(
             model=MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=512,
+            temperature=0.7, #balanced creativity
+            max_tokens=512, #max answer size
         )
-        raw = response.choices[0].message.content.strip()
+        raw = response.choices[0].message.content.strip() #extract response
 
         questions = []
         for line in raw.splitlines():
             line = line.strip()
             if not line or len(line) < 10:
                 continue
-            line = re.sub(r"^[\d\.\-\*\•]+\s*", "", line).strip()
+            line = re.sub(r"^[\d\.\-\*\•]+\s*", "", line).strip() #Removes prefixes
             if line:
                 questions.append(line)
 
@@ -152,3 +152,4 @@ Generate {n} follow-up questions:
     except Exception as e:
         print(f"Follow-up suggestion generation failed: {e}")
         return []
+    

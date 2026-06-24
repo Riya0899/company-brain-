@@ -2,7 +2,7 @@ import chromadb
 
 client = chromadb.PersistentClient(path = "vector_store")  # connection to database 
 
-collection = client.get_or_create_collection(name = "company_documents")
+collection = client.get_or_create_collection(name = "company_documents") #collection is similar to SQL table
 def store_chunks(chunks, embeddings,pdf_name, labels):
     for i, chunk in enumerate(chunks):
         collection.add(
@@ -26,8 +26,8 @@ def search_chunks(query_embedding, k=3):
     return results
 
 def get_all_chunks():
-    results=collection.get()
-    return results["documents"]
+    results=collection.get() #return everything
+    return results["documents"] #returns only text
 
 
 def search_cluster_chunks(
