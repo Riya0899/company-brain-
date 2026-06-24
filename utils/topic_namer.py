@@ -1,5 +1,4 @@
 from groq import Groq
-from groq import Groq
 from dotenv import load_dotenv
 import os
 import time  # it will pause the program when rate limit exceeds
