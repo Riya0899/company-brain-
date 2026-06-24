@@ -11,7 +11,7 @@ Two modes:
 
 from groq import Groq
 from dotenv import load_dotenv
-import os
+import os #to access environment variables
 import re
 
 load_dotenv()

@@ -3,7 +3,7 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-@st.cache_resource
+@st.cache_resource  # it caches the model so it doesnot reload everytime
 def _load_model():
     return SentenceTransformer('all-MiniLM-L6-v2')
 
