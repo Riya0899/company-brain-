@@ -158,3 +158,5 @@ def evaluate_answer(
         print(f"Evaluation failed: {e}")
         # Fail open so the UI still shows an answer
         return True, 0.75, f"Evaluation skipped ({type(e).__name__})"
+        # Fail open so the UI still shows an answer
+        return True, 0.75, f"Evaluation skipped ({type(e).__name__})"

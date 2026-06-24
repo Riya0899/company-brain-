@@ -1,5 +1,6 @@
 from sklearn.cluster import KMeans
 import numpy as np
+import numpy as np
 
 #groups semantically similar text chunks into clusters using KMeans on embedding vectors
 def cluster_chunks(embeddings, n_clusters=4):

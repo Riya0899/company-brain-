@@ -152,3 +152,4 @@ Generate {n} follow-up questions:
     except Exception as e:
         print(f"Follow-up suggestion generation failed: {e}")
         return []
+    
