@@ -3,18 +3,20 @@ import chromadb
 client = chromadb.PersistentClient(path = "vector_store")  # connection to database 
 
 collection = client.get_or_create_collection(name = "company_documents") #collection is similar to SQL table
-def store_chunks(chunks, embeddings,pdf_name, labels):
-    for i, chunk in enumerate(chunks):
-        collection.add(
-            ids=[f"{pdf_name}_{i}"],
-            documents=[chunk],
-            embeddings=[embeddings[i].tolist()],
-            metadatas=[{
-                "source":pdf_name,
-                "chunk":i,
-                "cluster":int(labels[i])
-            }]
-        )
+def store_chunks(chunks, embeddings, pdf_name, labels, ids=None, sources=None):
+    n = len(chunks)
+    final_ids = ids if ids is not None else [f"{pdf_name}_{i}" for i in range(n)]
+    final_sources = sources if sources is not None else [pdf_name] * n
+
+    collection.upsert(
+        ids=list(final_ids),
+        documents=list(chunks),
+        embeddings=[e.tolist() if hasattr(e, "tolist") else list(e) for e in embeddings],
+        metadatas=[
+            {"source": final_sources[i], "chunk": i, "cluster": int(labels[i])}
+            for i in range(n)
+        ],
+    )
 
 def search_chunks(query_embedding, k=3):
     results=collection.query(
