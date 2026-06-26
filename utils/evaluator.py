@@ -67,7 +67,7 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
         return re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
 
     def generate(self, prompt: str, schema=None):
-        raw = self._chat(prompt)
+        raw = self._chat(prompt) #gets response from Groq
         clean = self._clean_json(raw)
 
         if schema is None:
@@ -76,7 +76,7 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
         # DeepEval metrics pass a pydantic schema and expect an instance back.
         try:
             data = json.loads(clean)
-            return schema(**data)
+            return schema(**data) #creates pydantic object
         except Exception:
             # Last-ditch fallback so DeepEval doesn't crash the whole eval run
             try:
@@ -156,5 +156,7 @@ def evaluate_answer(
 
     except Exception as e:
         print(f"Evaluation failed: {e}")
+        # Fail open so the UI still shows an answer
+        return True, 0.75, f"Evaluation skipped ({type(e).__name__})"
         # Fail open so the UI still shows an answer
         return True, 0.75, f"Evaluation skipped ({type(e).__name__})"

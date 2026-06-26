@@ -27,7 +27,7 @@ def generate_answer(context, question):
 
     Give a clear, professional answer.
     """
-
+    #call groq API
     response = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}]
