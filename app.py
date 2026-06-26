@@ -2,9 +2,94 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Company Brain", layout="wide", page_icon="🧠")
 
+# ── Helper functions: copy button, confidence bar, sources, feedback ─────────
+
+def copy_button(text: str, key: str):
+    safe_text = text.replace("`", "\\`").replace("\\", "\\\\").replace("\n", "\\n")
+    html_code = f"""
+    <textarea id="copy-text-{key}" style="position:absolute;left:-9999px;">{text}</textarea>
+    <button id="copy-btn-{key}" style="
+        background:#1a1a24;border:0.5px solid #2e2e42;color:#999;
+        font-size:11px;padding:5px 12px;border-radius:8px;cursor:pointer;
+        font-family:-apple-system,sans-serif;">
+        📋 Copy answer
+    </button>
+    <script>
+        document.getElementById("copy-btn-{key}").onclick = function() {{
+            const textarea = document.getElementById("copy-text-{key}");
+            textarea.style.position = "fixed";
+            textarea.style.top = "0";
+            textarea.focus();
+            textarea.select();
+            try {{
+                document.execCommand("copy");
+                this.innerText = "✅ Copied!";
+            }} catch (err) {{
+                this.innerText = "❌ Failed";
+            }}
+            textarea.style.position = "absolute";
+            textarea.style.left = "-9999px";
+            setTimeout(() => this.innerText = "📋 Copy answer", 1500);
+        }};
+    </script>
+    """
+    components.html(html_code, height=40)
+
+
+def confidence_bar_html(score: float) -> str:
+    pct = int(score * 100)
+    if score >= 0.7:
+        color, label = "#4CAF7D", "High confidence"
+    elif score >= 0.4:
+        color, label = "#E5945B", "Medium confidence"
+    else:
+        color, label = "#E57070", "Low confidence"
+    return f"""
+    <div style="margin:8px 0 4px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#777;margin-bottom:4px;">
+        <span>{label}</span><span style="font-weight:600;color:{color}">{pct}%</span>
+      </div>
+      <div style="height:6px;background:#232330;border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:{pct}%;background:{color};border-radius:4px;"></div>
+      </div>
+    </div>
+    """
+
+
+def render_sources(sources: list, key_prefix: str):
+    if not sources:
+        return
+    with st.expander(f"📚 Sources ({len(sources)})"):
+        for s in sources:
+            st.markdown(f"""
+            <div style="background:#13131a;border:0.5px solid #232330;border-radius:8px;
+                        padding:10px 14px;margin-bottom:6px;">
+              <div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:4px;">
+                📄 {s['source']}
+              </div>
+              <div style="font-size:12px;color:#888;line-height:1.5;">
+                {s['snippet']}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+def feedback_widget(msg_index: int):
+    fb_key = f"feedback_{msg_index}"
+    current = st.session_state.messages[msg_index].get("feedback")
+    col1, col2, col3 = st.columns([1, 1, 10])
+    with col1:
+        if st.button("👍" if current != "up" else "✅👍", key=f"{fb_key}_up"):
+            st.session_state.messages[msg_index]["feedback"] = "up"
+            st.rerun()
+    with col2:
+        if st.button("👎" if current != "down" else "✅👎", key=f"{fb_key}_down"):
+            st.session_state.messages[msg_index]["feedback"] = "down"
+            st.rerun()
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -267,6 +352,7 @@ for k, v in {
     "doc_embeddings": {},
     "doc_chunk_counts": {},
     "doc_topic_maps": {},
+    "doc_summaries":{},
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -563,10 +649,16 @@ elif st.session_state.page == "chat":
         role = message["role"]
         with st.chat_message(role, avatar="🧠" if role == "assistant" else "👤"):
             st.markdown(message["content"])
-            if role == "assistant" and "score" in message:
-                with st.expander("📊 Answer quality"):
-                    st.progress(message["score"], text=f"Confidence: {message['score']:.0%}")
-                    st.caption(f"🔁 Attempts: {message.get('attempts', 1)} · {message.get('reason', '')}")
+            if role == "assistant":
+                if "score" in message:
+                    st.markdown(confidence_bar_html(message["score"]), unsafe_allow_html=True)
+                copy_button(message["content"], key=f"hist_{i}")
+                if "sources" in message:
+                    render_sources(message["sources"], key_prefix=f"hist_{i}")
+                feedback_widget(i)
+                if "score" in message:
+                    with st.expander(f"🔁 {message.get('attempts',1)} attempt(s) · details"):
+                        st.caption(message.get("reason", ""))
 
         # Show stored follow-up chips after every past assistant message
         # (skip the last message — it gets chips rendered fresh below)
@@ -637,11 +729,16 @@ elif st.session_state.page == "chat":
                 combined_chunks.append(chunk)
 
         context = ""
+        sources_used = []
         for idx, chunk in enumerate(combined_chunks):
             source = "keyword search"
             if idx < len(metadatas) and metadatas[idx]:
                 source = metadatas[idx].get("source", "unknown")
             context += f"{chunk} (Source: {source})\n\n"
+            sources_used.append({
+                "source": source,
+                "snippet": chunk[:180] + ("…" if len(chunk) > 180 else "")
+            })
 
         final_context = f"""
         conversation history:
@@ -666,9 +763,11 @@ elif st.session_state.page == "chat":
 
         with st.chat_message("assistant", avatar="🧠"):
             st.markdown(answer)
-            with st.expander("📊 Answer quality"):
-                st.progress(score, text=f"Confidence: {score:.0%}")
-                st.caption(f"🔁 Attempts: {attempts} · {reason}")
+            st.markdown(confidence_bar_html(score), unsafe_allow_html=True)
+            copy_button(answer, key=f"new_{len(st.session_state.messages)}")
+            render_sources(sources_used, key_prefix=f"new_{len(st.session_state.messages)}")
+            with st.expander(f"🔁 {attempts} attempt(s) · details"):
+                st.caption(reason)
 
         # Show fresh follow-up chips right after the new answer
         if followups:
@@ -691,8 +790,9 @@ elif st.session_state.page == "chat":
         st.session_state.messages.append({
             "role": "assistant", "content": answer,
             "score": score, "attempts": attempts, "reason": reason,
-            "followups": followups,
+            "followups": followups, "sources":sources_used,
         })
+        feedback_widget(len(st.session_state.messages)-1)
 
     if st.session_state.messages:
         if st.button("🧹 Clear chat", key="clear_chat_btn"):
@@ -715,6 +815,8 @@ elif st.session_state.page == "upload":
         from utils.topic_clustering import cluster_chunks
         from utils.suggestion_generator import generate_suggestions
         from utils.topic_namer import generate_topic_name
+        from utils.summarizer import summarize_document
+        
     except ImportError:
         st.error("Utils not found.")
         st.stop()
@@ -835,6 +937,8 @@ elif st.session_state.page == "upload":
                 existing.add(s)
         st.session_state.pdf_suggestions = st.session_state.pdf_suggestions[-20:]
 
+        st.session_state.doc_summaries[source_name] = summarize_document(chunks, source_label=label)
+
         return chunks, topic_names
 
     tab_pdf, tab_url = st.tabs(["📄  PDF Upload", "🌐  From URL"])
@@ -884,6 +988,9 @@ elif st.session_state.page == "upload":
                     pills = " ".join([f'<span class="cb-pill">{n}</span>' for n in topic_names.values()])
                     st.markdown(f'<div style="margin:4px 0 16px"><div class="cb-pill-row">{pills}</div></div>', unsafe_allow_html=True)
 
+                with st.expander("📝 Document summary"):
+                    st.markdown(st.session_state.doc_summaries.get(uploaded_file.name, "Summary unavailable."))
+                
     with tab_url:
         st.markdown("""
         <div class="cb-url-box">
@@ -904,7 +1011,7 @@ elif st.session_state.page == "upload":
         url_input = st.text_area(
             "Enter one or more URLs (one per line)",
             placeholder="https://example.com/document\nhttps://arxiv.org/pdf/paper.pdf",
-            height=110,
+            height=80,
             label_visibility="collapsed",
         )
 
@@ -976,6 +1083,9 @@ elif st.session_state.page == "upload":
                         pills = " ".join([f'<span class="cb-pill">{n}</span>' for n in topic_names.values()])
                         st.markdown(f'<div style="margin:4px 0 16px"><div class="cb-pill-row">{pills}</div></div>', unsafe_allow_html=True)
 
+                    with st.expander("📝 Document summary"):
+                        st.markdown(st.session_state.doc_summaries.get(source_name, "Summary unavailable."))
+
                 except ValueError as e:
                     st.error(f"❌ **{url[:60]}** — {e}")
                 except Exception as e:
@@ -1004,6 +1114,9 @@ elif st.session_state.page == "upload":
               <span class="cb-status status-indexed">Indexed</span>
             </div>
             """, unsafe_allow_html=True)
+            
+            with st.expander(f"📝 Summary — {doc}"):
+                st.markdown(st.session_state.doc_summaries.get(doc, "No summary available."))
 
     st.markdown('</div>', unsafe_allow_html=True)
 
