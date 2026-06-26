@@ -25,3 +25,6 @@ Thumbs.db
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+
+vector_store/
+*.sqlite3
