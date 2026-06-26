@@ -35,6 +35,7 @@ def search_cluster_chunks(
     cluster_id,
     k=3
 ):
+    
     results=collection.query(
         query_embeddings=[
             query_embedding[0].tolist()
