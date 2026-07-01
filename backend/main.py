@@ -178,3 +178,15 @@ def get_history():
 def get_suggestions():
     return kb.pdf_suggestions
 
+@app.get("/stats")
+def get_stats():
+    history = db.list_queries()
+    if not history:
+        return {"avg_score": 0, "avg_faithfulness": 0, "avg_relevancy": 0, "total_queries": 0}
+    n = len(history)
+    return {
+        "avg_score": sum(h["score"] for h in history) / n,
+        "avg_faithfulness": sum(h["faithfulness"] or 0 for h in history) / n,
+        "avg_relevancy": sum(h["relevancy"] or 0 for h in history) / n,
+        "total_queries": n,
+    }
