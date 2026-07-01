@@ -1,3 +1,5 @@
+# textsplitter.py
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 def spit_text_into_chunks(text):

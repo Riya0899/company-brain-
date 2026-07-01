@@ -1,30 +1,28 @@
-# Virtual environment
-venv/
-.venv/
+# Environment variables — NEVER commit this, it has your API key
+.env
+backend/.env
+frontend/.env
 
-# Python cache
+# Python
 __pycache__/
 *.pyc
+*.pyo
+venv/
+env/
+.venv/
 
-# Environment variables
-.env
+# Databases & vector store (regenerated locally, shouldn't be shared via git)
+*.db
+backend/company_brain.db
+backend/vector_store/
 
-# Streamlit secrets
-.streamlit/secrets.toml
+# Streamlit
+.streamlit/
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-
-# Generated cache
-.cache/
-
-# Jupyter checkpoints
-.ipynb_checkpoints/
-
-vector_store/
-*.sqlite3
