@@ -1,10 +1,5 @@
-"""
-url_reader.py
--------------
-Fetches a URL and extracts clean readable text from it.
-Uses LangChain RecursiveUrlLoader for deep multi-page crawling.
-Falls back to single-page requests for direct PDF links.
-"""
+# url reader.py
+
 
 import re
 import requests #used to fetch webpages
@@ -24,8 +19,8 @@ HEADERS = {
 TIMEOUT = 15
 
 
-def _bs4_extractor(html: str) -> str:
-    """Clean extractor passed to RecursiveUrlLoader."""
+def _bs4_extractor(html: str) -> str:  # Clean extractor passed to RecursiveUrlLoader.
+   
     soup = BeautifulSoup(html, "html.parser")
 
     # Remove noise
@@ -54,29 +49,12 @@ def _bs4_extractor(html: str) -> str:
 
 
 def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> tuple[str, str]:
-    """
-    Fetch a URL and return (text, source_name).
 
-    Supports:
-      - Direct PDF URLs   → parsed with PyPDF (single page)
-      - Regular web pages → crawled recursively with RecursiveUrlLoader
-
-    Parameters
-    ----------
-    url       : str — the URL to fetch
-    max_depth : int — how many link levels deep to crawl (default 2)
-    max_pages : int — max number of pages to crawl (default 10)
-
-    Returns
-    -------
-    text        : str — extracted plain text (all pages joined)
-    source_name : str — short label derived from the URL
-    """
     url = url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
-    # ── Direct PDF link ───────────────────────────────────────────────────────
+    #  Direct PDF link
     try:
         head = requests.head(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
         content_type = head.headers.get("Content-Type", "").lower()
@@ -102,7 +80,7 @@ def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> 
 
         return text.strip(), _url_to_name(url)
 
-    # ── Recursive web crawl ───────────────────────────────────────────────────
+    #  Recursive web crawl 
     try:
         loader = RecursiveUrlLoader(
             url=url,
