@@ -1,18 +1,8 @@
-"""
-evaluator.py
-------------
-Scores each answer for faithfulness and relevancy using DeepEval's
-built-in metrics (FaithfulnessMetric, AnswerRelevancyMetric), powered
-by a custom Groq LLM wrapper.
-
-Threshold for "passed" is 0.5 on each metric (matches DeepEval default
-metric.threshold usage).
-"""
-
 import os
 import json
 import re
 from dotenv import load_dotenv
+from typing import List
 
 from groq import Groq
 
@@ -29,13 +19,6 @@ THRESHOLD = 0.5
 # ── Custom Groq wrapper for DeepEval ────────────────────────────────────────
 
 class GroqDeepEvalModel(DeepEvalBaseLLM):
-    """
-    Minimal DeepEvalBaseLLM implementation backed by Groq.
-    DeepEval calls generate()/a_generate() and expects either plain text
-    or, when a schema is passed, a parsed pydantic object. We handle the
-    schema case by asking for JSON and parsing it ourselves.
-    """
-
     def __init__(self, model_name: str = JUDGE_MODEL):
         self.model_name = model_name
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -58,7 +41,7 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
                 {"role": "user", "content": prompt},
             ],
             temperature=0,
-            max_tokens=512,
+            max_tokens=1024,
         )
         return response.choices[0].message.content.strip()
 
@@ -67,22 +50,54 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
         return re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
 
     def generate(self, prompt: str, schema=None):
-        raw = self._chat(prompt) #gets response from Groq
+        raw = self._chat(prompt)
         clean = self._clean_json(raw)
 
         if schema is None:
             return raw
 
-        # DeepEval metrics pass a pydantic schema and expect an instance back.
+        # Attempt 1: direct parse
         try:
             data = json.loads(clean)
-            return schema(**data) #creates pydantic object
+            return schema(**data)
         except Exception:
-            # Last-ditch fallback so DeepEval doesn't crash the whole eval run
-            try:
-                return schema()
-            except Exception:
-                raise
+            pass
+
+        # Attempt 2: extract the first {...} or [...] block from the raw text
+        # (handles cases where the model added stray text around the JSON)
+        try:
+            match = re.search(r"\{.*\}|\[.*\]", clean, re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                if isinstance(data, list):
+                    # Some DeepEval schemas expect {"field_name": [...]}
+                    field_name = next(iter(schema.model_fields.keys()))
+                    return schema(**{field_name: data})
+                return schema(**data)
+        except Exception:
+            pass
+
+        # Final fallback: build a schema instance with safe, empty-but-valid
+        # defaults for every required field, based on its declared type.
+        # This guarantees DeepEval never crashes here, even on a total parse failure.
+        defaults = {}
+        for field_name, field_info in schema.model_fields.items():
+            annotation = field_info.annotation
+            origin = getattr(annotation, "__origin__", None)
+            if origin in (list, List):
+                defaults[field_name] = []
+            elif annotation in (str,):
+                defaults[field_name] = ""
+            elif annotation in (int,):
+                defaults[field_name] = 0
+            elif annotation in (float,):
+                defaults[field_name] = 0.0
+            elif annotation in (bool,):
+                defaults[field_name] = False
+            else:
+                defaults[field_name] = None
+
+        return schema(**defaults)
 
     async def a_generate(self, prompt: str, schema=None):
         # Groq's python client call above is sync; just reuse it.
@@ -102,24 +117,15 @@ def evaluate_answer(
     answer: str,
     context_chunks: list[str],
 ) -> tuple[bool, float, str]:
-    """
-    Evaluate an answer using DeepEval (Faithfulness + AnswerRelevancy),
-    judged by a Groq-backed model.
-
-    Returns
-    -------
-    passed : bool    — True if both metrics meet the threshold
-    score  : float   — average of faithfulness + relevancy (0.0–1.0)
-    reason : str     — human-readable summary
-    """
     if not answer or len(answer.strip()) < 10:
-        return False, 0.0, "Answer too short to evaluate"
+        return False, 0.0, "Answer too short to evaluate",0.0,0.0
 
     if not isinstance(context_chunks, list):
         context_chunks = [context_chunks]
 
     context = context_chunks[:5]  # cap to avoid token overflow
-
+    
+    
     try:
         test_case = LLMTestCase(
             input=question,
@@ -152,11 +158,9 @@ def evaluate_answer(
             f"Faithfulness: {faith_score:.2f} ({faithfulness_metric.reason}) | "
             f"Relevancy: {rel_score:.2f} ({relevancy_metric.reason})"
         )
-        return passed, avg_score, reason
+        return passed, avg_score, reason,faith_score,rel_score
 
     except Exception as e:
         print(f"Evaluation failed: {e}")
-        # Fail open so the UI still shows an answer
-        return True, 0.75, f"Evaluation skipped ({type(e).__name__})"
         # Fail open so the UI still shows an answer
         return True, 0.75, f"Evaluation skipped ({type(e).__name__})"

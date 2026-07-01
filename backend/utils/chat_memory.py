@@ -7,3 +7,4 @@ def get_recent_chat(messages,limit=4):
             f"{role}:{content}"
         )
     return "\n".join(history)  # join will merge and becomes conversation memory
+

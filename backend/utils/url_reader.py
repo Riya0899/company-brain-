@@ -1,11 +1,3 @@
-"""
-url_reader.py
--------------
-Fetches a URL and extracts clean readable text from it.
-Uses LangChain RecursiveUrlLoader for deep multi-page crawling.
-Falls back to single-page requests for direct PDF links.
-"""
-
 import re
 import requests #used to fetch webpages
 from io import BytesIO #BytesIO converts into something that behaves like a file

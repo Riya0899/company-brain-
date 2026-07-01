@@ -1,10 +1,3 @@
-"""
-summarizer.py
--------------
-Generates a concise summary of a document immediately after indexing,
-using Groq.
-"""
-
 from groq import Groq
 from dotenv import load_dotenv
 import os

@@ -1,14 +1,3 @@
-"""
-suggestion_generator.py
------------------------
-Generates smart, document-aware question suggestions from PDF chunks
-or URL-fetched content using Groq.
-
-Two modes:
-  1. generate_suggestions()       — called once at upload time (initial chips)
-  2. generate_followup_suggestions() — called after each AI answer (contextual chips)
-"""
-
 from groq import Groq
 from dotenv import load_dotenv
 import os #to access environment variables
@@ -25,18 +14,6 @@ def generate_suggestions(
     n: int = 8,
     source_label: str = "document",
 ) -> list[str]:
-    """
-    Given a list of text chunks from a PDF or web page, return up to `n`
-    natural questions a user might want to ask about that source.
-
-    Parameters
-    ----------
-    chunks       : list of text chunks from the source
-    n            : number of suggestions to generate
-    source_label : human-readable label for the source
-
-    Returns a plain list of question strings.
-    """
     if len(chunks) <= 6:
         sample = chunks
     else:
@@ -93,20 +70,7 @@ def generate_followup_suggestions(
     topic_name: str = "",
     n: int = 3,
 ) -> list[str]:
-    """
-    Generate contextual follow-up question suggestions based on the most
-    recent Q&A exchange. Called after every assistant response so the user
-    always has relevant next steps to click.
-
-    Parameters
-    ----------
-    last_question : the user's most recent question
-    last_answer   : the assistant's most recent answer
-    topic_name    : detected topic cluster name (optional, adds context)
-    n             : number of follow-up suggestions to generate
-
-    Returns a plain list of question strings (up to `n`).
-    """
+ 
     topic_hint = f" The topic cluster detected was: '{topic_name}'." if topic_name else ""
 
     prompt = f"""
