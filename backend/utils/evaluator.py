@@ -1,3 +1,5 @@
+# evaluator.py
+ 
 import os
 import json
 import re
@@ -18,7 +20,7 @@ THRESHOLD = 0.5
 
 # ── Custom Groq wrapper for DeepEval ────────────────────────────────────────
 
-class GroqDeepEvalModel(DeepEvalBaseLLM):
+class GroqDeepEvalModel(DeepEvalBaseLLM): 
     def __init__(self, model_name: str = JUDGE_MODEL):
         self.model_name = model_name
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -117,6 +119,7 @@ def evaluate_answer(
     answer: str,
     context_chunks: list[str],
 ) -> tuple[bool, float, str]:
+    
     if not answer or len(answer.strip()) < 10:
         return False, 0.0, "Answer too short to evaluate",0.0,0.0
 

@@ -32,11 +32,8 @@ def get_all_chunks():
     return results["documents"] #returns only text
 
 def get_cluster_chunks(cluster_id):
-
     results = collection.get(where={"cluster": int(cluster_id)})
     return results["documents"]
-
-
 
 def search_cluster_chunks(
     query_embedding,

@@ -1,6 +1,6 @@
 import re
 import requests #used to fetch webpages
-from io import BytesIO #BytesIO converts into something that behaves like a file
+from io import BytesIO #BytesIO converts into something that behaves like a file   
 from pypdf import PdfReader
 from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
 from bs4 import BeautifulSoup #parses HTML
@@ -15,9 +15,7 @@ HEADERS = {
 } #it tells the site like i am a chrome browser instead of unknown bot (as some sites block bots)
 TIMEOUT = 15
 
-
 def _bs4_extractor(html: str) -> str:
-    """Clean extractor passed to RecursiveUrlLoader."""
     soup = BeautifulSoup(html, "html.parser")
 
     # Remove noise
@@ -46,24 +44,6 @@ def _bs4_extractor(html: str) -> str:
 
 
 def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> tuple[str, str]:
-    """
-    Fetch a URL and return (text, source_name).
-
-    Supports:
-      - Direct PDF URLs   → parsed with PyPDF (single page)
-      - Regular web pages → crawled recursively with RecursiveUrlLoader
-
-    Parameters
-    ----------
-    url       : str — the URL to fetch
-    max_depth : int — how many link levels deep to crawl (default 2)
-    max_pages : int — max number of pages to crawl (default 10)
-
-    Returns
-    -------
-    text        : str — extracted plain text (all pages joined)
-    source_name : str — short label derived from the URL
-    """
     url = url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
@@ -133,7 +113,6 @@ def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> 
 
 
 def _url_to_name(url: str) -> str:
-    """Turn a URL into a short readable document name."""
     name = re.sub(r"^https?://", "", url)
     name = name.split("?")[0].split("#")[0]
     parts = [p for p in name.split("/") if p]
@@ -143,4 +122,4 @@ def _url_to_name(url: str) -> str:
         last = last.replace("-", " ").replace("_", " ").title()
         if last:
             return f"{last} ({parts[0]})"
-    return url[:60]
+    return url[:60] # returns the first 60 characters of the original URL

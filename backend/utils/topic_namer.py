@@ -9,20 +9,15 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY")) # groq is creating the connecti
 
 MODEL = "llama-3.3-70b-versatile"
 
+SYSTEM_PROMPT = """You are a topic-naming assistant for a document knowledge base.
+Rules:
+1. Read the cluster excerpts provided and assign each a short, specific 2-4 word name.
+2. Every name must be genuinely distinct from the others — never reuse or lightly reword the same name for two different clusters.
+3. Base names only on the actual content shown — never invent topics not present in the excerpts.
+4. Follow the exact output format requested. No extra commentary, no markdown, no numbering beyond what's asked."""
+
 
 def generate_all_topic_names(cluster_samples: dict, retries=3) -> dict:
-    """
-    Names ALL clusters in a single Groq call, so the model can see every
-    cluster's content at once and avoid generating duplicate names.
-
-    Parameters
-    ----------
-    cluster_samples : dict mapping cluster_id -> list of sample chunk texts
-
-    Returns
-    -------
-    dict mapping cluster_id -> topic name (guaranteed unique)
-    """
     cluster_ids = list(cluster_samples.keys())
 
     sections = []
@@ -52,7 +47,8 @@ def generate_all_topic_names(cluster_samples: dict, retries=3) -> dict:
         try:
             response = client.chat.completions.create(
                 model=MODEL,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}],
                 temperature=0.3,
                 max_tokens=200,
             )
@@ -98,4 +94,3 @@ def generate_all_topic_names(cluster_samples: dict, retries=3) -> dict:
                 raise e
 
     return {cid: f"Topic {cid}" for cid in cluster_ids}
-

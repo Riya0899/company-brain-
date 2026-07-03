@@ -12,5 +12,6 @@ class KnowledgeBase:
         self.doc_chunk_counts = {}
         self.pdf_suggestions = []
         self.doc_summaries = {}
+        self.answer_cache = {}
 
 kb = KnowledgeBase()

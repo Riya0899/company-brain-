@@ -1,3 +1,5 @@
+# suggestion generator
+
 from groq import Groq
 from dotenv import load_dotenv
 import os #to access environment variables
@@ -8,12 +10,25 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
 
+SUGGESTION_SYSTEM_PROMPT = """You are a question-generation assistant for a document knowledge base.
+Rules:
+1. Generate only questions that are directly answerable from the provided content excerpts.
+2. Be specific — reference actual topics, names, processes, or figures found in the text, never generic questions.
+3. Output exactly the number of questions requested, one per line, no numbering, no bullets, no extra commentary."""
+
+FOLLOWUP_SYSTEM_PROMPT = """You are a follow-up question assistant for a conversational knowledge base assistant.
+Rules:
+1. Generate only follow-up questions that logically build on the given answer.
+2. Be specific — reference actual details from the answer (names, figures, processes), never repeat or rephrase the original question.
+3. Keep each question under 15 words.
+4. Output exactly the number of questions requested, one per line, no numbering, no bullets, no extra commentary."""
 
 def generate_suggestions(
     chunks: list[str],
     n: int = 8,
     source_label: str = "document",
 ) -> list[str]:
+
     if len(chunks) <= 6:
         sample = chunks
     else:
@@ -42,7 +57,8 @@ Generate {n} questions:
     try:
         response = client.chat.completions.create(
             model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": SUGGESTION_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}],
             temperature=0.7, #balanced creativity
             max_tokens=512, #max answer size
         )
@@ -70,7 +86,7 @@ def generate_followup_suggestions(
     topic_name: str = "",
     n: int = 3,
 ) -> list[str]:
- 
+    
     topic_hint = f" The topic cluster detected was: '{topic_name}'." if topic_name else ""
 
     prompt = f"""
@@ -96,7 +112,8 @@ Generate {n} follow-up questions:
     try:
         response = client.chat.completions.create(
             model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": FOLLOWUP_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}],
             temperature=0.6,
             max_tokens=256,
         )
@@ -116,4 +133,3 @@ Generate {n} follow-up questions:
     except Exception as e:
         print(f"Follow-up suggestion generation failed: {e}")
         return []
-    
