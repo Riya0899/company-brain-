@@ -1,4 +1,3 @@
-# backend/db.py
 import sqlite3
 
 DB_PATH = "company_brain.db"

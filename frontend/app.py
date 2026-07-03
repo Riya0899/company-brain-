@@ -7,6 +7,7 @@ import styles
 from views import dashboard, chat, upload, gaps, features
 
 st.set_page_config(page_title="Company Brain", layout="wide", page_icon="🧠")
+st.set_page_config(initial_sidebar_state="expanded")
 styles.inject()
 
 if "page" not in st.session_state:

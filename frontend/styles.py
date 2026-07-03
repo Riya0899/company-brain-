@@ -4,7 +4,27 @@ import streamlit as st
 def inject():
     st.markdown("""
     <style>
-    #MainMenu, footer, header {visibility: hidden;}
+    #MainMenu, footer {visibility: hidden;}
+
+header[data-testid="stHeader"] {
+    visibility: visible !important;
+    background: transparent !important;
+    height: auto !important;
+}
+
+header[data-testid="stHeader"] [data-testid="stToolbar"] {
+    display: none !important;
+}
+
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    color: #ccc !important;
+    z-index: 999999 !important;
+    position: relative !important;
+}
     .block-container {padding: 0 !important; max-width: 100% !important;}
     body, .stApp { background: #0e0e11 !important; color: #ccc; font-family: -apple-system, sans-serif; }
     section[data-testid="stSidebar"] { background: #13131a !important; border-right: 0.5px solid #232330 !important; }

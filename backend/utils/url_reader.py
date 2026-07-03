@@ -1,10 +1,7 @@
-# url reader.py
-
-
 import re
 import requests #used to fetch webpages
 from io import BytesIO #BytesIO converts into something that behaves like a file
-from pypdf import PdfReader
+from pypdf import PdfReader  # to read thr file
 from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
 from bs4 import BeautifulSoup #parses HTML
 
@@ -16,13 +13,10 @@ HEADERS = {
         "Chrome/120.0.0.0 Safari/537.36"
     )
 } #it tells the site like i am a chrome browser instead of unknown bot (as some sites block bots)
-TIMEOUT = 15
-
+TIMEOUT = 15  # wait till 15 seconds if server does not response
 
 def _bs4_extractor(html: str) -> str:  # Clean extractor passed to RecursiveUrlLoader.
-   
     soup = BeautifulSoup(html, "html.parser")
-
     # Remove noise
     for tag in soup(["script", "style", "nav", "footer",
                      "header", "aside", "form", "noscript",
@@ -56,7 +50,7 @@ def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> 
 
     #  Direct PDF link
     try:
-        head = requests.head(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+        head = requests.head(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)  # it download headers to check content type without downloading the whole file
         content_type = head.headers.get("Content-Type", "").lower()
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Could not reach URL: {e}")
@@ -77,7 +71,6 @@ def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> 
 
         if not text.strip():
             raise ValueError("PDF appears to be image-based — no extractable text found.")
-
         return text.strip(), _url_to_name(url)
 
     #  Recursive web crawl 
@@ -94,7 +87,6 @@ def extract_text_from_url(url: str, max_depth: int = 2, max_pages: int = 10) -> 
         docs = loader.load()
     except Exception as e:
         raise ValueError(f"RecursiveUrlLoader failed: {e}")
-
     if not docs:
         raise ValueError("No content could be extracted from this URL.")
 

@@ -1,7 +1,5 @@
-# hybrid search.py
-
-from rank_bm25 import BM25Okapi
-import re
+from rank_bm25 import BM25Okapi    # rank based bm25 technique
+import re                        # regex for cleaning
 import numpy as np
 from utils.topic_clustering import predict_cluster
 from utils.vector_store import search_cluster_chunks, get_cluster_chunks,search_chunks, get_all_chunks
@@ -20,7 +18,6 @@ def _bm25_search(query: str, chunks: list[str], k: int = 2) -> list[str]:
     scores = bm25.get_scores(_tokenize(query))
     scored = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
     return [c for score, c in scored[:k] if score > 0]
-
 
 def predict_topic_cluster(clusterer, query_embedding):
     return predict_cluster(clusterer, query_embedding)
@@ -41,9 +38,6 @@ def hybrid_retrieve(
     topic_name = topic_names.get(topic_id, f"Cluster {topic_id}")
 
     if topic_id == -1:
-        # No confident cluster match — fall back to searching across
-        # ALL chunks globally for both methods, rather than returning nothing.
-        
         vector_results = search_chunks(query_embedding, k=vector_k)
         vector_chunks = vector_results["documents"][0]
         vector_metadatas = vector_results["metadatas"][0]
@@ -55,7 +49,6 @@ def hybrid_retrieve(
         cluster_chunks_only = get_cluster_chunks(topic_id)
 
     keyword_chunks = _bm25_search(user_query, cluster_chunks_only, k=keyword_k)
-
     combined_chunks = list(vector_chunks)
     for c in keyword_chunks:
         if c not in combined_chunks:
