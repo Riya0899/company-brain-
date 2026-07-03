@@ -1,13 +1,9 @@
-# evaluator.py
- 
 import os
 import json
 import re
 from dotenv import load_dotenv
 from typing import List
-
 from groq import Groq
-
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics import FaithfulnessMetric, AnswerRelevancyMetric
 from deepeval.test_case import LLMTestCase
@@ -17,26 +13,17 @@ load_dotenv()
 JUDGE_MODEL = "llama-3.1-8b-instant"
 THRESHOLD = 0.5
 
-
-# ── Custom Groq wrapper for DeepEval ────────────────────────────────────────
-
-class GroqDeepEvalModel(DeepEvalBaseLLM):
-    """
-    Minimal DeepEvalBaseLLM implementation backed by Groq.
-    DeepEval calls generate()/a_generate() and expects either plain text
-    or, when a schema is passed, a parsed pydantic object. We handle the
-    schema case by asking for JSON and parsing it ourselves.
-    """
-
+class GroqDeepEvalModel(DeepEvalBaseLLM):  # groq wrapper for deepeval since it uses openai 
+                                           # this is inheritance
     def __init__(self, model_name: str = JUDGE_MODEL):
         self.model_name = model_name
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
     def load_model(self):
         return self.client
-
+    
     def _chat(self, prompt: str) -> str:
-        response = self.client.chat.completions.create(
+        response = self.client.chat.completions.create(   # it calls the api
             model=self.model_name,
             messages=[
                 {
@@ -54,7 +41,7 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
         )
         return response.choices[0].message.content.strip()
 
-    @staticmethod
+    @staticmethod  # we need not to write self and it doesnot depend on object data
     def _clean_json(raw: str) -> str:
         return re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
 
@@ -64,16 +51,16 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
 
         if schema is None:
             return raw
-
+        
         # Attempt 1: direct parse
         try:
             data = json.loads(clean)
-            return schema(**data)
+            return schema(**data)  # ** unpack the dictionary to keyword arguments
         except Exception:
             pass
 
         # Attempt 2: extract the first {...} or [...] block from the raw text
-        # (handles cases where the model added stray text around the JSON)
+        # (handles cases where the model added text around the JSON)
         try:
             match = re.search(r"\{.*\}|\[.*\]", clean, re.DOTALL)
             if match:
@@ -109,7 +96,7 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
         return schema(**defaults)
 
     async def a_generate(self, prompt: str, schema=None):
-        # Groq's python client call above is sync; just reuse it.
+        # Groq's python client call above is sync;we just reuse it.
         return self.generate(prompt, schema=schema)
 
     def get_model_name(self):
@@ -118,32 +105,18 @@ class GroqDeepEvalModel(DeepEvalBaseLLM):
 
 _judge_model = GroqDeepEvalModel()
 
-
-# ── public API ───────────────────────────────────────────────────────────────
-
 def evaluate_answer(
     question: str,
     answer: str,
     context_chunks: list[str],
 ) -> tuple[bool, float, str]:
-    """
-    Evaluate an answer using DeepEval (Faithfulness + AnswerRelevancy),
-    judged by a Groq-backed model.
-
-    Returns
-    -------
-    passed : bool    — True if both metrics meet the threshold
-    score  : float   — average of faithfulness + relevancy (0.0–1.0)
-    reason : str     — human-readable summary
-    """
+    
     if not answer or len(answer.strip()) < 10:
         return False, 0.0, "Answer too short to evaluate",0.0,0.0
 
     if not isinstance(context_chunks, list):
         context_chunks = [context_chunks]
-
     context = context_chunks[:5]  # cap to avoid token overflow
-    
     
     try:
         test_case = LLMTestCase(
@@ -182,6 +155,7 @@ def evaluate_answer(
     except Exception as e:
         print(f"Evaluation failed: {e}")
         # Fail open so the UI still shows an answer
-        return True, 0.75, f"Evaluation skipped ({type(e).__name__})"
+        return True, 0.75, f"Evaluation skipped ({type(e).__name__})",0.75,0.75
+    
 
             

@@ -1,7 +1,19 @@
 # frontend/api_client.py
 import requests
+import streamlit as st 
 
 BASE = "http://localhost:8000"
+
+def _post(path, **kwargs):
+    resp = requests.post(f"{BASE}{path}", **kwargs)
+    if not resp.ok:
+        try:
+            detail = resp.json().get("detail", resp.text)
+        except ValueError:
+            detail = resp.text
+        st.error(f"Backend error ({resp.status_code}): {detail}")
+        st.stop()
+    return resp.json()
 
 def upload_pdf(file):
     return requests.post(f"{BASE}/upload", files={"file": file}).json()

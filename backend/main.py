@@ -7,10 +7,10 @@ from pydantic import BaseModel
 
 import db
 from state import kb
-
+from utils.vector_store import collection
 from utils.pdf_reader import extract_text_from_pdf
 from utils.url_reader import extract_text_from_url
-from utils.text_splitter import spit_text_into_chunks
+from utils.text_splitter import split_text_into_chunks
 from utils.embeddings import create_embeddings, model as embed_model
 from utils.topic_clustering import cluster_chunks, get_dynamic_min_cluster_size
 from utils.topic_namer import generate_all_topic_names
@@ -25,6 +25,52 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 db.init_db()
 
+
+def _rebuild_state_from_chroma():
+    """On backend startup, reload all persisted chunks from ChromaDB back into kb,
+    so a restart doesn't lose the in-memory clustering state."""
+    all_data = collection.get(include=["documents", "embeddings", "metadatas"])
+    if not all_data["ids"]:
+        return  # nothing indexed yet, nothing to rebuild
+
+    kb.all_chunks = all_data["documents"]
+    kb.all_embeddings = list(all_data["embeddings"])
+    kb.all_sources = [m["source"] for m in all_data["metadatas"]]
+    kb.all_chunk_ids = all_data["ids"]
+
+    all_emb = np.array(kb.all_embeddings).astype(np.float32)
+    min_size = get_dynamic_min_cluster_size(len(all_emb))
+    labels, clusterer = cluster_chunks(all_emb, min_cluster_size=min_size, min_samples=1)
+    kb.cluster_labels = labels
+    kb.clusterer = clusterer
+
+    kb.topic_names = db.list_topics()
+    # convert string keys back to int if needed (SQLite may return them fine already)
+    kb.topic_names = {int(k): v for k, v in kb.topic_names.items()}
+
+
+@app.on_event("startup")
+def startup_event():
+    _rebuild_state_from_chroma()
+def _remove_existing_document(source_name: str):
+    """Purge any previously indexed data for this source_name from kb, Chroma, and SQLite,
+    so re-uploading a file with the same name cleanly replaces it instead of erroring/duplicating."""
+    if source_name not in kb.all_sources:
+        return  # nothing to remove, first-time upload
+
+    keep_idx = [i for i, s in enumerate(kb.all_sources) if s != source_name]
+
+    kb.all_chunks = [kb.all_chunks[i] for i in keep_idx]
+    kb.all_embeddings = [kb.all_embeddings[i] for i in keep_idx]
+    kb.all_sources = [kb.all_sources[i] for i in keep_idx]
+    kb.all_chunk_ids = [kb.all_chunk_ids[i] for i in keep_idx]
+
+    # remove old vectors from Chroma
+    collection.delete(where={"source": source_name})
+
+    kb.doc_chunk_counts.pop(source_name, None)
+    kb.doc_summaries.pop(source_name, None)
+    kb.answer_cache = {}  # context changed, cache is now stale
 
 class ChatRequest(BaseModel):
     query: str
@@ -47,7 +93,8 @@ def extract_sources_used(answer: str):
 
 
 def _index_text(text: str, source_name: str):
-    chunks = spit_text_into_chunks(text)
+    _remove_existing_document(source_name)
+    chunks = split_text_into_chunks(text)
     embeddings = create_embeddings(chunks)
 
     for i, chunk in enumerate(chunks):
@@ -55,7 +102,9 @@ def _index_text(text: str, source_name: str):
         kb.all_embeddings.append(embeddings[i])
         kb.all_sources.append(source_name)
         kb.all_chunk_ids.append(f"{source_name}_{i}")
-
+        
+    kb.answer_cache = {} 
+    
     all_emb = np.array(kb.all_embeddings).astype(np.float32)
     min_size = get_dynamic_min_cluster_size(len(all_emb))
     labels, clusterer = cluster_chunks(all_emb, min_cluster_size=min_size, min_samples=1)
@@ -92,7 +141,6 @@ def _index_text(text: str, source_name: str):
 
     return chunks, topic_names, summary
 
-
 @app.post("/upload")
 def upload_pdf(file: UploadFile = File(...)):
     text = extract_text_from_pdf(file.file)
@@ -112,8 +160,12 @@ def upload_url(req: UrlRequest):
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    if not kb.all_chunks:
+    if not kb.all_chunks or kb.clusterer is None:
         raise HTTPException(400, "No documents indexed yet.")
+
+    cache_key = req.query.strip().lower()
+    if cache_key in kb.answer_cache:
+        return kb.answer_cache[cache_key]   # instant return, no pipeline run at all
 
     chat_history = get_recent_chat(req.messages)
     retrieval = hybrid_retrieve(
@@ -127,7 +179,7 @@ def chat(req: ChatRequest):
     context, sources, topic_name = retrieval["context"], retrieval["sources"], retrieval["topic_name"]
 
     final_context = f"conversation history:\n{chat_history}\n\nknowledge base:\n{context}"
-    answer, score, attempts, reason, faith, rel = generate_answer_with_retry(final_context, req.query, max_retries=3)
+    answer, score, attempts, reason, faith, rel = generate_answer_with_retry(final_context, req.query, max_retries=2)
     clean_answer, used_names = extract_sources_used(answer)
 
     used_sources = sources
@@ -137,21 +189,21 @@ def chat(req: ChatRequest):
         if filtered:
             used_sources = filtered
 
-    followups = generate_followup_suggestions(req.query, clean_answer, topic_name, n=3)
-
-    db.add_query(req.query, score,faith, rel, topic_name)
+    db.add_query(req.query, score, faith, rel, topic_name)
     if score < 0.5:
         db.add_gap(req.query)
 
-    return {
+    response = {
         "answer": clean_answer,
         "score": round(score, 2),
         "faithfulness": round(faith, 2),
         "relevancy": round(rel, 2),
         "topic": topic_name,
         "sources": used_sources,
-        "followups": followups,
     }
+
+    kb.answer_cache[cache_key] = response   # NEW: save for next time
+    return response
 
 
 @app.get("/documents")

@@ -1,9 +1,5 @@
-# vectorstore.py
-
 import chromadb
-
 client = chromadb.PersistentClient(path = "vector_store")  # connection to database 
-
 collection = client.get_or_create_collection(name = "company_documents") #collection is similar to SQL table
 
 
@@ -20,7 +16,7 @@ def store_chunks(chunks, embeddings, pdf_name, labels, ids=None, sources=None):
             {"source": final_sources[i], "chunk": i, "cluster": int(labels[i])}
             for i in range(n)
         ],
-    )
+    ) #this stores data
 
 def search_chunks(query_embedding, k=3):
     results=collection.query(
@@ -36,29 +32,13 @@ def get_all_chunks():
     return results["documents"] #returns only text
 
 def get_cluster_chunks(cluster_id):
-
     results = collection.get(where={"cluster": int(cluster_id)})
     return results["documents"]
 
-
-
-def search_cluster_chunks(
-    query_embedding,
-    cluster_id,
-    k=3
-):
-    
+def search_cluster_chunks(query_embedding,cluster_id,k=3): 
     results=collection.query(
-        query_embeddings=[
-            query_embedding[0].tolist()
-        ],
+        query_embeddings=[query_embedding[0].tolist()],
         n_results=k,
-        where={
-            "cluster":int(cluster_id)
-        },
-        include=[
-            "documents",
-            "metadatas"
-        ]
-    )
+        where={"cluster":int(cluster_id)},
+        include=["documents","metadatas"])
     return results

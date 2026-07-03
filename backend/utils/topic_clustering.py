@@ -1,8 +1,5 @@
-# topic clustering.py
-
 import hdbscan
 import numpy as np
-
 
 def cluster_chunks(embeddings, min_cluster_size=2, min_samples=1):
     
@@ -12,6 +9,7 @@ def cluster_chunks(embeddings, min_cluster_size=2, min_samples=1):
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
         metric="euclidean",
+        
         cluster_selection_epsilon=0.0,
         prediction_data=True,  # Required to enable approximate_predict() later
     )
@@ -20,7 +18,7 @@ def cluster_chunks(embeddings, min_cluster_size=2, min_samples=1):
     return labels.tolist(), clusterer
 
 
-def get_dynamic_min_cluster_size(num_chunks: int, base: int = 2, scale_every: int = 500, max_size: int = 40) -> int:
+def get_dynamic_min_cluster_size(num_chunks: int, base: int = 5, scale_every: int = 500, max_size: int = 40) -> int:
     
     # Scales min_cluster_size with knowledge base size, so clusters stay
     # meaningfully sized as you go from hundreds to tens of thousands of chunks.
