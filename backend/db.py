@@ -35,6 +35,12 @@ def init_db():
         question TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS suggestions (
+        id INTEGER PRIMARY KEY,
+        question TEXT UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     """)
     conn.commit()
     conn.close()
@@ -93,3 +99,15 @@ def list_gaps():
     rows = conn.execute("SELECT * FROM knowledge_gaps ORDER BY id DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+def add_suggestion(question):
+    conn = get_conn()
+    conn.execute("INSERT OR IGNORE INTO suggestions (question) VALUES (?)", (question,))
+    conn.commit()
+    conn.close()
+
+def list_suggestions():
+    conn = get_conn()
+    rows = conn.execute("SELECT question FROM suggestions ORDER BY id DESC LIMIT 20").fetchall()
+    conn.close()
+    return [r["question"] for r in rows]

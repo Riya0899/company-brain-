@@ -18,7 +18,7 @@ def store_chunks(chunks, embeddings, pdf_name, labels, ids=None, sources=None):
         ],
     ) #this stores data
 
-def search_chunks(query_embedding, k=3):
+def search_chunks(query_embedding, k):
     results=collection.query(
     query_embeddings = [query_embedding[0].tolist()],
     n_results=k,
@@ -35,7 +35,7 @@ def get_cluster_chunks(cluster_id):
     results = collection.get(where={"cluster": int(cluster_id)})
     return results["documents"]
 
-def search_cluster_chunks(query_embedding,cluster_id,k=3): 
+def search_cluster_chunks(query_embedding,cluster_id,k): 
     results=collection.query(
         query_embeddings=[query_embedding[0].tolist()],
         n_results=k,

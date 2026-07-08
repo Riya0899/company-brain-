@@ -1,13 +1,22 @@
 from rank_bm25 import BM25Okapi    # rank based bm25 technique
 import re                        # regex for cleaning
 import numpy as np
+import nltk
+from nltk.corpus import stopwords
 from utils.topic_clustering import predict_cluster
 from utils.vector_store import search_cluster_chunks, get_cluster_chunks,search_chunks, get_all_chunks
 
+try:
+    nltk.data.find("corpora/stopwords")
+except LookupError:
+    nltk.download("stopwords")
+
+STOPWORDDS = set(stopwords.words("english"))
 
 def _tokenize(text: str) -> list[str]:
     text = text.lower()
-    return re.findall(r"\b[a-z0-9]+\b", text)
+    words= re.findall(r"\b[a-z0-9]+\b", text)
+    return [w for w in words if w not in STOPWORDDS]
 
 
 def _bm25_search(query: str, chunks: list[str], k: int = 2) -> list[str]:

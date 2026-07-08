@@ -16,7 +16,7 @@ from utils.topic_clustering import cluster_chunks, get_dynamic_min_cluster_size
 from utils.topic_namer import generate_all_topic_names
 from utils.hybrid_search import hybrid_retrieve
 from utils.vector_store import store_chunks
-from utils.llm import generate_answer_with_retry
+from utils.llm import generate_answer_with_retry,route_and_maybe_answer
 from utils.summarizer import summarize_document
 from utils.suggestion_generator import generate_suggestions, generate_followup_suggestions
 from utils.chat_memory import get_recent_chat
@@ -81,6 +81,11 @@ class UrlRequest(BaseModel):
     url: str
     max_depth: int = 2
     max_pages: int = 10
+    
+class FollowupRequest(BaseModel):
+    question: str
+    answer: str
+    topic: str = ""
 
 
 def extract_sources_used(answer: str):
@@ -133,6 +138,7 @@ def _index_text(text: str, source_name: str):
     for s in new_suggestions:
         if s not in kb.pdf_suggestions:
             kb.pdf_suggestions.append(s)
+        db.add_suggestion(s)
     kb.pdf_suggestions = kb.pdf_suggestions[-20:]
 
     summary = summarize_document(chunks, source_label=label)
@@ -160,14 +166,29 @@ def upload_url(req: UrlRequest):
 
 @app.post("/chat")
 def chat(req: ChatRequest):
+    cache_key = req.query.strip().lower()
+    if cache_key in kb.answer_cache:
+        return kb.answer_cache[cache_key]
+
+    chat_history = get_recent_chat(req.messages)
+
+    needs_retrieval, direct_answer = route_and_maybe_answer(req.query, chat_history)
+
+    if not needs_retrieval:
+        response = {
+            "answer": direct_answer,
+            "score": 1.0,
+            "faithfulness": 1.0,
+            "relevancy": 1.0,
+            "topic": "General Chat",
+            "sources": [],
+        }
+        kb.answer_cache[cache_key] = response
+        return response
+
     if not kb.all_chunks or kb.clusterer is None:
         raise HTTPException(400, "No documents indexed yet.")
 
-    cache_key = req.query.strip().lower()
-    if cache_key in kb.answer_cache:
-        return kb.answer_cache[cache_key]   # instant return, no pipeline run at all
-
-    chat_history = get_recent_chat(req.messages)
     retrieval = hybrid_retrieve(
         user_query=req.query,
         embed_model=embed_model,
@@ -201,8 +222,7 @@ def chat(req: ChatRequest):
         "topic": topic_name,
         "sources": used_sources,
     }
-
-    kb.answer_cache[cache_key] = response   # NEW: save for next time
+    kb.answer_cache[cache_key] = response
     return response
 
 
@@ -228,7 +248,12 @@ def get_history():
 
 @app.get("/suggestions")
 def get_suggestions():
-    return kb.pdf_suggestions
+    return db.list_suggestions()
+
+@app.post("/followups")
+def followups(req: FollowupRequest):
+    suggestions = generate_followup_suggestions(req.question, req.answer, req.topic, n=3)
+    return {"followups": suggestions}
 
 @app.get("/stats")
 def get_stats():
