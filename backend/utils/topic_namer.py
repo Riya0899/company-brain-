@@ -9,7 +9,7 @@ load_dotenv()  # load the value to memory
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY")) # groq is creating the connection
 
-MODEL = "llama-3.3-70b-versatile"
+ROUTE_MODEL = "llama-3.1-8b-instant"   
 
 SYSTEM_PROMPT = """You are a topic-naming assistant for a document knowledge base.
 Rules:
@@ -48,14 +48,16 @@ def generate_all_topic_names(cluster_samples: dict, retries=3) -> dict:
     for attempt in range(retries):
         try:
             response = client.chat.completions.create(
-                model=MODEL,
+                model=ROUTE_MODEL,
                 messages=[{"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}],
                 temperature=0.3,
                 max_tokens=200,
             )
             raw = response.choices[0].message.content.strip()
-
+         
+            # parsing , formatted output
+            
             topic_names = {}
             for line in raw.splitlines():
                 line = line.strip()

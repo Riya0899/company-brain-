@@ -1,5 +1,5 @@
 import os
-import json
+import json  # used to parse judge model's json responses
 import re
 from dotenv import load_dotenv
 from typing import List

@@ -6,24 +6,25 @@ import re
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+ROUTE_MODEL = "llama-3.1-8b-instant"
 
 SUGGESTION_SYSTEM_PROMPT = """You are a question-generation assistant for a document knowledge base.
 Rules:
 1. Generate only questions that are directly answerable from the provided content excerpts.
 2. Be specific — reference actual topics, names, processes, or figures found in the text, never generic questions.
-3. Output exactly the number of questions requested, one per line, no numbering, no bullets, no extra commentary."""
+3. Keep each question under 10 words.
+4. Output exactly the number of questions requested, one per line, no numbering, no bullets, no extra commentary."""
 
 FOLLOWUP_SYSTEM_PROMPT = """You are a follow-up question assistant for a conversational knowledge base assistant.
 Rules:
 1. Generate only follow-up questions that logically build on the given answer.
 2. Be specific — reference actual details from the answer (names, figures, processes), never repeat or rephrase the original question.
-3. Keep each question under 15 words.
+3. Keep each question under 10 words.
 4. Output exactly the number of questions requested, one per line, no numbering, no bullets, no extra commentary."""
 
 def generate_suggestions(
     chunks: list[str],
-    n: int = 8,
+    n: int,
     source_label: str = "document",
 ) -> list[str]:
 
@@ -54,11 +55,11 @@ Generate {n} questions:
 
     try:
         response = client.chat.completions.create(
-            model=MODEL,
+            model=ROUTE_MODEL,
             messages=[{"role": "system", "content": SUGGESTION_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}],
-            temperature=0.7, #balanced creativity
-            max_tokens=512, #max answer size
+            temperature=0.6, #balanced creativity
+            max_tokens=250, #max answer size
         )
         raw = response.choices[0].message.content.strip() #extract response
 
@@ -80,7 +81,7 @@ def generate_followup_suggestions(
     last_question: str,
     last_answer: str,
     topic_name: str = "",
-    n: int = 3,
+    n: int = 4,
 ) -> list[str]:
     
     topic_hint = f" The topic cluster detected was: '{topic_name}'." if topic_name else ""
@@ -100,18 +101,18 @@ Rules:
 - Be specific — reference actual content from the answer (names, figures, processes)
 - Do NOT repeat the original question or rephrase it
 - No numbering, no bullets, no extra text — just the questions, one per line
-- Keep each question under 15 words
+- Keep each question under 10 words
 
 Generate {n} follow-up questions:
 """
 
     try:
         response = client.chat.completions.create(
-            model=MODEL,
+            model=ROUTE_MODEL,
             messages=[{"role": "system", "content": FOLLOWUP_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}],
-            temperature=0.6,
-            max_tokens=256,
+            temperature=0.4,
+            max_tokens=150,
         )
         raw = response.choices[0].message.content.strip()
 
