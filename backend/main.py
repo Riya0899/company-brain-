@@ -17,6 +17,7 @@ from utils.topic_namer import generate_all_topic_names
 from utils.hybrid_search import hybrid_retrieve
 from utils.vector_store import store_chunks
 from utils.llm import generate_answer_with_retry,route_and_maybe_answer
+from utils.llm import generate_answer_with_retry,route_and_maybe_answer
 from utils.summarizer import summarize_document
 from utils.suggestion_generator import generate_suggestions, generate_followup_suggestions
 from utils.chat_memory import get_conversation_context
@@ -145,6 +146,7 @@ def _index_text(text: str, source_name: str):
         if s not in kb.pdf_suggestions:
             kb.pdf_suggestions.append(s)
         db.add_suggestion(s)
+        db.add_suggestion(s)
     kb.pdf_suggestions = kb.pdf_suggestions[-20:]
 
     summary = summarize_document(chunks, source_label=label)
@@ -232,6 +234,7 @@ def chat(req: ChatRequest):
         "sources": used_sources,
     }
     kb.answer_cache[cache_key] = response
+    kb.answer_cache[cache_key] = response
     return response
 
 
@@ -257,6 +260,12 @@ def get_history():
 
 @app.get("/suggestions")
 def get_suggestions():
+    return db.list_suggestions()
+
+@app.post("/followups")
+def followups(req: FollowupRequest):
+    suggestions = generate_followup_suggestions(req.question, req.answer, req.topic, n=3)
+    return {"followups": suggestions}
     return db.list_suggestions()
 
 @app.post("/followups")

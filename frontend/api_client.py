@@ -1,5 +1,5 @@
-# frontend/api_client.py
 import requests
+import streamlit as st
 import streamlit as st
 
 BASE = "http://localhost:8000"
@@ -26,13 +26,30 @@ def _get(path, **kwargs):
         st.stop()
     return resp.json()
 
+def _get(path, **kwargs):
+    resp = requests.get(f"{BASE}{path}", **kwargs)
+    if not resp.ok:
+        try:
+            detail = resp.json().get("detail", resp.text)
+        except ValueError:
+            detail = resp.text
+        st.error(f"Backend error ({resp.status_code}): {detail}")
+        st.stop()
+    return resp.json()
+
 def upload_pdf(file):
+    return _post("/upload", files={"file": file})
     return _post("/upload", files={"file": file})
 
 def upload_url(url, max_depth=2, max_pages=10):
     return _post("/upload-url", json={"url": url, "max_depth": max_depth, "max_pages": max_pages})
+    return _post("/upload-url", json={"url": url, "max_depth": max_depth, "max_pages": max_pages})
 
 def chat(query, messages):
+    return _post("/chat", json={"query": query, "messages": messages})
+
+def get_followups(question, answer, topic=""):
+    return _post("/followups", json={"question": question, "answer": answer, "topic": topic})
     return _post("/chat", json={"query": query, "messages": messages})
 
 def get_followups(question, answer, topic=""):
@@ -46,15 +63,20 @@ def reset_memory():
 
 def get_topics():
     return _get("/topics")
+    return _get("/topics")
 
 def get_gaps():
+    return _get("/gaps")
     return _get("/gaps")
 
 def get_history():
     return _get("/history")
+    return _get("/history")
 
 def get_stats():
     return _get("/stats")
+    return _get("/stats")
 
 def get_suggestions():
+    return _get("/suggestions")
     return _get("/suggestions")
