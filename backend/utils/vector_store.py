@@ -29,11 +29,11 @@ def search_chunks(query_embedding, k):
 
 def get_all_chunks():
     results=collection.get() #return everything
-    return results["documents"] #returns only text
+    return list(zip(results["documents"], results["metadatas"])) 
 
 def get_cluster_chunks(cluster_id):
     results = collection.get(where={"cluster": int(cluster_id)})
-    return results["documents"]
+    return list(zip(results["documents"], results["metadatas"]))
 
 def search_cluster_chunks(query_embedding,cluster_id,k): 
     results=collection.query(

@@ -30,15 +30,15 @@ def init_db():
         topic TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS knowledge_gaps (
-        id INTEGER PRIMARY KEY,
-        question TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
     CREATE TABLE IF NOT EXISTS suggestions (
         id INTEGER PRIMARY KEY,
         question TEXT UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS chat_memory (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        summary TEXT DEFAULT '',
+        summarized_count INTEGER DEFAULT 0
     );
 
     """)
@@ -111,3 +111,26 @@ def list_suggestions():
     rows = conn.execute("SELECT question FROM suggestions ORDER BY id DESC LIMIT 20").fetchall()
     conn.close()
     return [r["question"] for r in rows]
+
+def get_chat_memory():
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM chat_memory WHERE id = 1").fetchone()
+    conn.close()
+    if row is None:
+        return {"summary": "", "summarized_count": 0}
+    return {"summary": row["summary"] or "", "summarized_count": row["summarized_count"] or 0}
+
+def save_chat_memory(summary: str, summarized_count: int):
+    conn = get_conn()
+    conn.execute(
+        "INSERT OR REPLACE INTO chat_memory (id, summary, summarized_count) VALUES (1, ?, ?)",
+        (summary, summarized_count),
+    )
+    conn.commit()
+    conn.close()
+
+def reset_chat_memory():
+    conn = get_conn()
+    conn.execute("DELETE FROM chat_memory WHERE id = 1")
+    conn.commit()
+    conn.close()

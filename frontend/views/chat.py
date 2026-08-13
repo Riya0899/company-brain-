@@ -156,6 +156,10 @@ def render():
     if st.session_state.messages:
         if st.button("🧹 Clear chat"):
             st.session_state.messages = []
+            try:
+                api.reset_memory()
+            except Exception:
+                pass  # don't block clearing the UI just because this call failed
             st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)

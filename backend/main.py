@@ -17,9 +17,10 @@ from utils.topic_namer import generate_all_topic_names
 from utils.hybrid_search import hybrid_retrieve
 from utils.vector_store import store_chunks
 from utils.llm import generate_answer_with_retry,route_and_maybe_answer
+from utils.llm import generate_answer_with_retry,route_and_maybe_answer
 from utils.summarizer import summarize_document
 from utils.suggestion_generator import generate_suggestions, generate_followup_suggestions
-from utils.chat_memory import get_recent_chat
+from utils.chat_memory import get_conversation_context
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -88,18 +89,24 @@ class FollowupRequest(BaseModel):
     topic: str = ""
 
 
-def extract_sources_used(answer: str):
-    match = re.search(r"SOURCES_USED:\s*(.+)$", answer, re.MULTILINE)
+def extract_source_used(answer: str):
+    match = re.search(
+        r"SOURCE_USED:\s*Document\s*(\d+)",
+        answer,
+        re.MULTILINE,
+    )
+
     if match:
         clean = answer[:match.start()].strip()
-        used = [s.strip() for s in match.group(1).split(",") if s.strip()]
-        return clean, used
-    return answer, []
+        return clean, int(match.group(1))
+
+    return answer, None
 
 
 def _index_text(text: str, source_name: str):
     _remove_existing_document(source_name)
     chunks = split_text_into_chunks(text)
+    
     embeddings = create_embeddings(chunks)
 
     for i, chunk in enumerate(chunks):
@@ -134,10 +141,11 @@ def _index_text(text: str, source_name: str):
     kb.doc_chunk_counts[source_name] = len(chunks)
 
     label = f"PDF ({source_name})"
-    new_suggestions = generate_suggestions(chunks, n=8, source_label=label)
+    new_suggestions = generate_suggestions(chunks, n=4, source_label=label)
     for s in new_suggestions:
         if s not in kb.pdf_suggestions:
             kb.pdf_suggestions.append(s)
+        db.add_suggestion(s)
         db.add_suggestion(s)
     kb.pdf_suggestions = kb.pdf_suggestions[-20:]
 
@@ -163,6 +171,10 @@ def upload_url(req: UrlRequest):
     chunks, topic_names, summary = _index_text(text, source_name)
     return {"filename": source_name, "chunks": len(chunks), "topics": topic_names, "summary": summary}
 
+@app.post("/reset-memory")
+def reset_memory():
+    db.reset_chat_memory()
+    return {"status": "cleared"}
 
 @app.post("/chat")
 def chat(req: ChatRequest):
@@ -170,7 +182,7 @@ def chat(req: ChatRequest):
     if cache_key in kb.answer_cache:
         return kb.answer_cache[cache_key]
 
-    chat_history = get_recent_chat(req.messages)
+    chat_history = get_conversation_context(req.messages)
 
     needs_retrieval, direct_answer = route_and_maybe_answer(req.query, chat_history)
 
@@ -186,7 +198,7 @@ def chat(req: ChatRequest):
         kb.answer_cache[cache_key] = response
         return response
 
-    if not kb.all_chunks or kb.clusterer is None:
+    if not kb.all_chunks:
         raise HTTPException(400, "No documents indexed yet.")
 
     retrieval = hybrid_retrieve(
@@ -199,14 +211,13 @@ def chat(req: ChatRequest):
     )
     context, sources, topic_name = retrieval["context"], retrieval["sources"], retrieval["topic_name"]
 
-    final_context = f"conversation history:\n{chat_history}\n\nknowledge base:\n{context}"
-    answer, score, attempts, reason, faith, rel = generate_answer_with_retry(final_context, req.query, max_retries=2)
-    clean_answer, used_names = extract_sources_used(answer)
+    final_context = f"conversation history:\n{chat_history}\n\nTopic: {topic_name}\n\nknowledge base:\n{context}"
+    answer, score, used_doc_llm, attempts, reason, faith, rel = generate_answer_with_retry(final_context, req.query, max_retries=2)
+    clean_answer, used_doc = extract_source_used(answer)
 
     used_sources = sources
-    if used_names:
-        used_lower = [u.lower() for u in used_names]
-        filtered = [s for s in sources if any(u in s["source"].lower() or s["source"].lower() in u for u in used_lower)]
+    if used_doc is not None:
+        filtered = [s for s in sources if s["doc_no"]==used_doc]
         if filtered:
             used_sources = filtered
 
@@ -222,6 +233,7 @@ def chat(req: ChatRequest):
         "topic": topic_name,
         "sources": used_sources,
     }
+    kb.answer_cache[cache_key] = response
     kb.answer_cache[cache_key] = response
     return response
 
@@ -248,6 +260,12 @@ def get_history():
 
 @app.get("/suggestions")
 def get_suggestions():
+    return db.list_suggestions()
+
+@app.post("/followups")
+def followups(req: FollowupRequest):
+    suggestions = generate_followup_suggestions(req.question, req.answer, req.topic, n=3)
+    return {"followups": suggestions}
     return db.list_suggestions()
 
 @app.post("/followups")

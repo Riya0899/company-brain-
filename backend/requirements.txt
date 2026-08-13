@@ -10,9 +10,14 @@ hdbscan
 rank-bm25
 chromadb
 langchain-text-splitters
-langchain-community
+playwright 
 beautifulsoup4
 pypdf
+pdfplumber
+easyocr
+numpy
+pillow
 requests
 deepeval
 numpy
+nltk

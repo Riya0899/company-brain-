@@ -51,7 +51,7 @@ def render():
         url = st.text_input("URL", placeholder="https://example.com/article", label_visibility="collapsed")
         c1, c2 = st.columns(2)
         with c1:
-            max_depth = st.selectbox("Crawl depth", [1, 2, 3], index=1)
+            max_depth = st.selectbox("Crawl depth", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], index=1)
         with c2:
             max_pages = st.selectbox("Max pages", [1, 5, 10, 20], index=2)
 
